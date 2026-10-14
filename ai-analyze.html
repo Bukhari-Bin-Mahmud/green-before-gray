@@ -99,7 +99,7 @@
 <!-- Loading state -->
 <div id="ai-loading" class="ai-loading" hidden>
 <div class="ai-spinner"></div>
-<p data-i18n="aiAnalyzing">Analyzing your photo and generating green plans…</p>
+<p id="ai-loading-status" data-i18n="aiAnalyzing">Analyzing your photo and generating green plans…</p>
 </div>
 
 <!-- Result contents -->
@@ -110,7 +110,10 @@
 <img id="result-photo" alt="Uploaded neighborhood photo">
 </div>
 <div class="ai-result-suggestions">
-<h3 data-i18n="aiSuggestions">AI Suggestions</h3>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+  <h3 data-i18n="aiSuggestions" style="margin: 0;">AI Suggestions</h3>
+  <span id="ai-provider-badge" style="display: none; font-size: 0.75rem; color: #bad58a; background: rgba(186,213,138,0.12); padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(186,213,138,0.3); font-weight: 500;"></span>
+</div>
 <div id="suggestions-text" class="ai-suggestions-text"></div>
 </div>
 </div>
