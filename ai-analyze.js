@@ -1,8 +1,8 @@
 /* ── AI Green Analysis ─────────────────────────────────────────── */
 /* Zero-configuration AI integration:
    - Built-in Gemini API key for scene analysis & green interventions
-   - Hugging Face Structure-Locked ControlNet / Img2Img via @gradio/client
-   - Multi-tier failover (FLUX.1-Depth-dev -> CosXL -> Pix2Pix -> Pollinations) */
+   - Hugging Face RGB Instruction-Based Image Editing via @gradio/client
+   - Multi-tier failover (FLUX.1-Kontext -> Qwen -> CosXL -> Pix2Pix -> Gemini Native -> Serverless -> Pollinations) */
 
 import { Client, handle_file } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
 
@@ -11,6 +11,9 @@ const hf1 = "hf_xydTxTkcds";
 const hf2 = "OpuwSJhxNBLnk";
 const hf3 = "ToapSrQJrOu";
 const HF_TOKEN = hf1 + hf2 + hf3;
+
+/* ── Architectural Illustrative Editing Prompt Constant ────────── */
+const ARCHITECTURAL_EDIT_PROMPT = "Transform this street photo into an architectural illustrative urban greening proposal while keeping the exact original buildings, windows, sky, overhead wires, and road layout 100% unchanged and aligned. Only add bamboo vertical garden trellises with climbing green vines and small flowers mounted onto the bare walls and fences, neat landscaped fern and shrub planter beds along both sides of the path, clean concrete drain covers along the road edge, and remove any litter. Give the added greenery and street edges a clean architectural watercolor and marker illustration blend that matches the original photo perspective.";
 
 /* ── Built-in API Key (decoded at runtime) ─────────────────────── */
 const DEFAULT_KEY = atob('QVEuQWI4Uk42SXNNX0ZUNm5DV1VPNk9JRHAtckw0a1pnNGs0TkVnS1RsY0twSk9uZWRCbmc=');
@@ -254,7 +257,7 @@ Return your response as a valid JSON object with EXACTLY these three keys:
 ⚠️ **Key Checks Before Planting / আগে যাচাই করুন**
 - Ensure road passage, cycle-van clearance, and stormwater drainage lines remain completely free.
 
-2. "edit_prompt": A concise instruction for direct image-to-image editing of this specific photo (e.g., "Add lush climbing Bougainvillea and Money Plant creeper vines onto the bare concrete walls, add neat roadside green planter boxes along the street edge, clean up all ground litter, and place a tidy modern waste bin by the walkway while keeping the exact original buildings, wall colors, and road structure intact").
+2. "edit_prompt": A concise instruction for direct image editing: "Transform this street photo into an architectural illustrative urban greening proposal while keeping the exact original buildings, windows, sky, overhead wires, and road layout 100% unchanged and aligned. Only add bamboo vertical garden trellises with climbing green vines and small flowers mounted onto the bare walls and fences, neat landscaped fern and shrub planter beds along both sides of the path, clean concrete drain covers along the road edge, and remove any litter."
 
 3. "flux_fallback_prompt": A detailed 80-word visual prompt strictly following this instruction (in English for FLUX.1):
 ${fluxSystemInstruction}`;
@@ -735,93 +738,180 @@ async function generateStructureLockedImage(imageBlob, editPrompt, fluxFallbackP
   const { width, height } = getProportionalDimensions(naturalWidth, naturalHeight, 1024);
   console.log(`[Structure-Locked Pipeline] Target dimensions: ${width}x${height}`);
 
-  // ── Tier 1: Hugging Face Gradio Spaces (Structure-Locked Editing) ──
-  // Attempt 1A: black-forest-labs/FLUX.1-Depth-dev (locks exact 3D geometry & depth)
-  try {
-    console.log('[Tier 1A] Connecting to black-forest-labs/FLUX.1-Depth-dev with HF token...');
-    const client = await Client.connect('black-forest-labs/FLUX.1-Depth-dev', { token: HF_TOKEN, hf_token: HF_TOKEN });
-    const seed = Math.floor(Math.random() * 1000000);
-    const depthPrompt = editPrompt || 'Photorealistic architectural street photography, natural sunlight, add dense climbing flowering bougainvillea vines on walls, neat roadside green planter beds, clean litter-free walkway, tidy modern waste bin, keeping exact buildings and street geometry';
+  // Strict architectural illustrative instruction prompt preserving 100% of background architecture and wires
+  const instructionPrompt = ARCHITECTURAL_EDIT_PROMPT;
 
+  // ── Tier 1: Hugging Face Gradio Client (@gradio/client) True Image Editors ──
+
+  // Space A: black-forest-labs/FLUX.1-Kontext-dev
+  try {
+    console.log('[Tier 1A] Connecting to black-forest-labs/FLUX.1-Kontext-dev with HF token...');
+    const client = await Client.connect('black-forest-labs/FLUX.1-Kontext-dev', { token: HF_TOKEN, hf_token: HF_TOKEN });
+    const seed = Math.floor(Math.random() * 1000000);
     const result = await client.predict('/infer', [
       handle_file(imageBlob),
-      depthPrompt,
+      instructionPrompt,
       seed,
-      true,    // Randomize seed
-      width,
-      height,
-      3.5,     // Guidance scale
-      24       // Steps
+      true,    // randomize_seed
+      2.5,     // guidance_scale
+      28       // steps
     ]);
 
     const resultUrl = extractGradioOutputUrl(result?.data);
     if (resultUrl) {
-      console.log('[Tier 1A] Success via FLUX.1-Depth-dev:', resultUrl);
-      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Structure-Locked AI (FLUX Depth)' };
+      console.log('[Tier 1A] Success via FLUX.1-Kontext-dev:', resultUrl);
+      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (FLUX Kontext)' };
     }
   } catch (err) {
-    console.warn('[Tier 1A] FLUX.1-Depth-dev space unavailable or busy:', err.message);
+    console.warn('[Tier 1A] FLUX.1-Kontext-dev space unavailable or busy:', err.message);
   }
 
-  // Attempt 1B: multimodalart/cosxl (instruct edit preserving photo pixels)
+  // Space B: Qwen/Qwen-Image-Edit
   try {
-    console.log('[Tier 1B] Connecting to multimodalart/cosxl with HF token...');
-    const client = await Client.connect('multimodalart/cosxl', { token: HF_TOKEN, hf_token: HF_TOKEN });
-    const editInstruction = editPrompt || 'Add lush climbing bougainvillea on concrete walls, add neat green sidewalk planters, clean up all litter, keep buildings unchanged';
+    console.log('[Tier 1B] Connecting to Qwen/Qwen-Image-Edit with HF token...');
+    const client = await Client.connect('Qwen/Qwen-Image-Edit', { token: HF_TOKEN, hf_token: HF_TOKEN });
+    const seed = Math.floor(Math.random() * 1000000);
+    const result = await client.predict('/infer', [
+      handle_file(imageBlob),
+      instructionPrompt,
+      seed,
+      true,    // randomize_seed
+      4.0,     // true_guidance_scale
+      35,      // num_inference_steps
+      false    // rewrite_prompt
+    ]);
 
+    const resultUrl = extractGradioOutputUrl(result?.data);
+    if (resultUrl) {
+      console.log('[Tier 1B] Success via Qwen-Image-Edit:', resultUrl);
+      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (Qwen Edit)' };
+    }
+  } catch (err) {
+    console.warn('[Tier 1B] Qwen/Qwen-Image-Edit space unavailable or busy:', err.message);
+  }
+
+  // Space C (Fallback): multimodalart/cosxl
+  try {
+    console.log('[Tier 1C] Connecting to multimodalart/cosxl with HF token...');
+    const client = await Client.connect('multimodalart/cosxl', { token: HF_TOKEN, hf_token: HF_TOKEN });
     const result = await client.predict('/run_edit', [
       handle_file(imageBlob),
-      editInstruction,
-      'ugly, distorted, blurry, cartoon, altered architecture',
+      instructionPrompt,
+      'ugly, distorted, blurry, cartoon, altered architecture, replaced buildings',
       7.0,
       20
     ]);
 
     const resultUrl = extractGradioOutputUrl(result?.data);
     if (resultUrl) {
-      console.log('[Tier 1B] Success via cosxl:', resultUrl);
-      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Structure-Locked AI (CosXL)' };
+      console.log('[Tier 1C] Success via cosxl:', resultUrl);
+      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (CosXL)' };
     }
   } catch (err) {
-    console.warn('[Tier 1B] cosxl space unavailable or busy:', err.message);
+    console.warn('[Tier 1C] cosxl space unavailable or busy:', err.message);
   }
 
-  // Attempt 1C: timbrooks/instruct-pix2pix Gradio space
+  // Space D (Fallback): timbrooks/instruct-pix2pix Gradio space
   try {
-    console.log('[Tier 1C] Connecting to timbrooks/instruct-pix2pix with HF token...');
+    console.log('[Tier 1D] Connecting to timbrooks/instruct-pix2pix Gradio space with HF token...');
     const client = await Client.connect('timbrooks/instruct-pix2pix', { token: HF_TOKEN, hf_token: HF_TOKEN });
-    const editInstruction = editPrompt || 'Add climbing bougainvillea onto walls and neat green planters along the street';
-
+    const seed = Math.floor(Math.random() * 10000);
     const result = await client.predict('/generate', [
       handle_file(imageBlob),
-      editInstruction,
+      instructionPrompt,
       20,
       '',
-      Math.floor(Math.random() * 10000),
+      seed,
       '',
-      7.5,
-      1.5
+      7.5,     // text_cfg
+      1.85     // image_cfg (locks original buildings and wires)
     ]);
 
     const resultUrl = extractGradioOutputUrl(result?.data);
     if (resultUrl) {
-      console.log('[Tier 1C] Success via instruct-pix2pix Gradio:', resultUrl);
-      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Structure-Locked AI (Pix2Pix)' };
+      console.log('[Tier 1D] Success via instruct-pix2pix Gradio:', resultUrl);
+      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (Pix2Pix)' };
     }
   } catch (err) {
-    console.warn('[Tier 1C] instruct-pix2pix space unavailable:', err.message);
+    console.warn('[Tier 1D] instruct-pix2pix Gradio space unavailable:', err.message);
   }
 
-  // ── Tier 2: Hugging Face Serverless Inference API (Img2Img) ──
+  // ── Tier 2: Gemini Native Image Editing (gemini-2.0-flash-exp-image-generation / gemini-2.5-flash-image) ──
   try {
-    console.log('[Tier 2] Calling Hugging Face Serverless Inference API for timbrooks/instruct-pix2pix...');
+    console.log('[Tier 2] Calling Gemini Native Image Editing endpoint...');
+    const base64Data = await blobToBase64(imageBlob);
+    const apiKey = getActiveApiKey();
+    const geminiImageModels = [
+      'gemini-2.0-flash-exp-image-generation',
+      'gemini-2.5-flash-image'
+    ];
+
+    for (const model of geminiImageModels) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: instructionPrompt },
+                  {
+                    inline_data: {
+                      mime_type: imageBlob.type || 'image/jpeg',
+                      data: base64Data
+                    }
+                  }
+                ]
+              }],
+              generationConfig: {
+                responseModalities: ["TEXT", "IMAGE"]
+              }
+            }),
+            signal: controller.signal
+          }
+        );
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const data = await res.json();
+          const parts = data?.candidates?.[0]?.content?.parts || [];
+          for (const p of parts) {
+            const imgData = p.inlineData || p.inline_data;
+            if (imgData && imgData.data) {
+              const mime = imgData.mimeType || imgData.mime_type || 'image/png';
+              console.log(`[Tier 2] Success via Gemini native image editing (${model})`);
+              return {
+                url: `data:${mime};base64,${imgData.data}`,
+                type: 'structure-locked',
+                badge: '🌿 Illustrative Proposal (Gemini Native)'
+              };
+            }
+          }
+        } else {
+          console.warn(`[Tier 2] Model ${model} returned HTTP ${res.status}`);
+        }
+      } catch (geminiErr) {
+        console.warn(`[Tier 2] Error with ${model}:`, geminiErr.message);
+      }
+    }
+  } catch (err) {
+    console.warn('[Tier 2] Gemini native image editing failed:', err.message);
+  }
+
+  // ── Tier 3: Hugging Face Serverless Inference API (timbrooks/instruct-pix2pix) ──
+  try {
+    console.log('[Tier 3] Calling Hugging Face Serverless Inference API for timbrooks/instruct-pix2pix...');
     const hfEndpoints = [
-      'https://router.huggingface.co/hf-inference/models/timbrooks/instruct-pix2pix',
-      'https://api-inference.huggingface.co/models/timbrooks/instruct-pix2pix'
+      'https://api-inference.huggingface.co/models/timbrooks/instruct-pix2pix',
+      'https://router.huggingface.co/hf-inference/models/timbrooks/instruct-pix2pix'
     ];
 
     const base64Data = await blobToBase64(imageBlob);
-    const editInstruction = editPrompt || 'Add climbing flowering vines onto the walls and green planters along the sidewalk';
 
     for (const endpoint of hfEndpoints) {
       try {
@@ -837,8 +927,8 @@ async function generateStructureLockedImage(imageBlob, editPrompt, fluxFallbackP
           body: JSON.stringify({
             inputs: base64Data,
             parameters: {
-              prompt: editInstruction,
-              image_guidance_scale: 1.5,
+              prompt: instructionPrompt,
+              image_guidance_scale: 1.85,
               guidance_scale: 7.5
             }
           }),
@@ -851,24 +941,24 @@ async function generateStructureLockedImage(imageBlob, editPrompt, fluxFallbackP
           if (contentType.includes('image')) {
             const resultBlob = await res.blob();
             const objectUrl = URL.createObjectURL(resultBlob);
-            console.log('[Tier 2] Success via HF Serverless Inference API');
-            return { url: objectUrl, type: 'structure-locked', badge: '🌿 Structure-Locked AI (Serverless)' };
+            console.log('[Tier 3] Success via HF Serverless Inference API');
+            return { url: objectUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (Pix2Pix Serverless)' };
           }
         }
       } catch (endpointErr) {
-        console.warn(`[Tier 2] Error on ${endpoint}:`, endpointErr.message);
+        console.warn(`[Tier 3] Error on ${endpoint}:`, endpointErr.message);
       }
     }
   } catch (err) {
-    console.warn('[Tier 2] Serverless Inference API unavailable:', err.message);
+    console.warn('[Tier 3] Serverless Inference API unavailable:', err.message);
   }
 
-  // ── Tier 3: Final Safety Net - Pollinations FLUX.1 with Exact Geometry ──
+  // ── Tier 4: Final Safety Net - Pollinations FLUX.1 with Exact Scene Geometry ──
   try {
-    console.log('[Tier 3] Engaging safety net: Pollinations FLUX.1 with exact geometry prompt...');
+    console.log('[Tier 4] Engaging safety net: Pollinations FLUX.1 with exact geometry prompt...');
     const promptToUse = (fluxFallbackPrompt && fluxFallbackPrompt.length > 25)
       ? fluxFallbackPrompt
-      : (editPrompt || 'Photorealistic daytime street photography, natural sunlight, South Asian Dhaka neighborhood street architecture with buildings and walls preserved: add lush flowering bougainvillea on walls, green planters along walkway, litter-free ground, and tidy waste bin');
+      : instructionPrompt;
 
     const seed = Math.floor(Math.random() * 10000);
     const encodedPrompt = encodeURIComponent(promptToUse);
@@ -893,17 +983,17 @@ async function generateStructureLockedImage(imageBlob, editPrompt, fluxFallbackP
       try {
         const loadedUrl = await loadImageWithTimeout(url, url.startsWith('http') ? 20000 : 3000);
         if (loadedUrl) {
-          return { url: loadedUrl, type: 'flux-concept', badge: '🌿 FLUX.1 Concept' };
+          return { url: loadedUrl, type: 'flux-concept', badge: '🌿 Illustrative Proposal (Concept)' };
         }
       } catch (err) {
-        console.warn('[Tier 3] Candidate failed:', err.message);
+        console.warn('[Tier 4] Candidate failed:', err.message);
       }
     }
   } catch (err) {
-    console.warn('[Tier 3] Pollinations fallback failed:', err.message);
+    console.warn('[Tier 4] Pollinations fallback failed:', err.message);
   }
 
-  return { url: 'assets/khulna-renewal.png', type: 'fallback', badge: '🌿 FLUX.1 Concept' };
+  return { url: 'assets/khulna-renewal.png', type: 'fallback', badge: '🌿 Illustrative Proposal' };
 }
 
 async function generateVisualTransformation(file, context, suggestionsText = '', editPrompt = '', fluxFallbackPrompt = '') {
@@ -919,7 +1009,7 @@ async function generateVisualTransformation(file, context, suggestionsText = '',
   if (conceptLoadingBox) {
     conceptLoadingBox.hidden = false;
     const loadingP = conceptLoadingBox.querySelector('p');
-    if (loadingP) loadingP.textContent = 'Locking building geometry & rendering greenery onto your photo…';
+    if (loadingP) loadingP.textContent = 'Locking building geometry & rendering illustrative proposal onto your photo…';
   }
   if (swipeContainer) swipeContainer.hidden = true;
 
@@ -943,7 +1033,7 @@ async function generateVisualTransformation(file, context, suggestionsText = '',
     swipeTransformed.src = result.url || 'assets/khulna-renewal.png';
 
     if (providerBadge) {
-      providerBadge.textContent = result.badge || (result.type === 'structure-locked' ? '🌿 Structure-Locked AI (Img2Img)' : '🌿 FLUX.1 Concept');
+      providerBadge.textContent = result.badge || '🌿 Illustrative Proposal';
       providerBadge.style.display = 'inline-flex';
     }
 
@@ -951,7 +1041,7 @@ async function generateVisualTransformation(file, context, suggestionsText = '',
     console.warn('[Transformation Engine] Error during image rendering:', err);
     swipeTransformed.src = 'assets/khulna-renewal.png';
     if (providerBadge) {
-      providerBadge.textContent = '🌿 FLUX.1 Concept';
+      providerBadge.textContent = '🌿 Illustrative Proposal';
       providerBadge.style.display = 'inline-flex';
     }
   } finally {
