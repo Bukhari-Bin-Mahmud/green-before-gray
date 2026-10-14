@@ -1,113 +1,95 @@
 /* ── AI Green Advisor ─────────────────────────────────────────── */
-/* Connects to Google Gemini API (free tier) for photo analysis
-   and Pollinations.ai for concept image generation.              */
+/* Zero-configuration AI integration:
+   - Built-in Gemini API key (no user pasting required)
+   - Dual photo input: Camera capture or File selection
+   - Multimodal prompt for green interventions
+   - Pollinations.ai concept image generation                     */
 
 (() => {
 'use strict';
 
-/* ── Helpers ───────────────────────────────────────────────────── */
-const $ = s => document.querySelector(s);
+/* ── Built-in API Key (decoded at runtime) ─────────────────────── */
+const DEFAULT_KEY = atob('QVEuQWI4Uk42SXNNX0ZUNm5DV1VPNk9JRHAtckw0a1pnNGs0TkVnS1RsY0twSk9uZWRCbmc=');
 const KEY_STORAGE = 'gbg-gemini-key';
 
+/* ── Helpers ───────────────────────────────────────────────────── */
+const $ = s => document.querySelector(s);
+
 /* ── State ─────────────────────────────────────────────────────── */
-let apiKey = '';
 let uploadedFile = null;
 let currentStep = 1;
 
 /* ── DOM refs ──────────────────────────────────────────────────── */
-const stepKey     = $('#step-apikey');
-const stepUpload  = $('#step-upload');
-const stepResult  = $('#step-result');
+const stepUpload       = $('#step-upload');
+const stepResult       = $('#step-result');
 
-const keyInput       = $('#api-key-input');
-const saveKeyCheck   = $('#save-key-check');
-const keyError       = $('#key-error');
-const btnSetKey      = $('#btn-set-key');
-const toggleKeyBtn   = $('#toggle-key-visibility');
+const btnCamera        = $('#btn-camera');
+const btnBrowse        = $('#btn-browse');
+const cameraInput      = $('#camera-input');
+const fileInput        = $('#file-input');
 
-const photoInput     = $('#photo-input');
-const dropZone       = $('#drop-zone');
-const uploadPreview  = $('#upload-preview');
+const dropZone         = $('#drop-zone');
 const uploadPlaceholder = $('#upload-placeholder');
-const uploadFilename = $('#upload-filename');
-const uploadError    = $('#upload-error');
-const aiContext      = $('#ai-context');
-const btnAnalyze     = $('#btn-analyze');
-const btnBackKey     = $('#btn-back-key');
+const previewWrapper   = $('#preview-wrapper');
+const uploadPreview    = $('#upload-preview');
+const btnChangePhoto   = $('#btn-change-photo');
+const uploadFilename   = $('#upload-filename');
+const uploadError      = $('#upload-error');
+const aiContext        = $('#ai-context');
+const btnAnalyze       = $('#btn-analyze');
 
-const aiLoading      = $('#ai-loading');
-const aiResultContent = $('#ai-result-content');
-const aiError        = $('#ai-error');
-const aiErrorText    = $('#ai-error-text');
-const resultPhoto    = $('#result-photo');
-const suggestionsText = $('#suggestions-text');
-const conceptLoading = $('#concept-loading');
-const conceptImage   = $('#concept-image');
-const btnNewPhoto    = $('#btn-new-photo');
-const btnDownload    = $('#btn-download-result');
-const btnRetry       = $('#btn-retry');
+const keyInput         = $('#api-key-input');
+const toggleKeyBtn     = $('#toggle-key-visibility');
 
-/* ── Step Navigation ───────────────────────────────────────────── */
+const aiLoading        = $('#ai-loading');
+const aiResultContent  = $('#ai-result-content');
+const aiError          = $('#ai-error');
+const aiErrorText      = $('#ai-error-text');
+const resultPhoto      = $('#result-photo');
+const suggestionsText  = $('#suggestions-text');
+const conceptLoading   = $('#concept-loading');
+const conceptImage     = $('#concept-image');
+const btnNewPhoto      = $('#btn-new-photo');
+const btnDownload      = $('#btn-download-result');
+const btnRetry         = $('#btn-retry');
+
+/* ── Step Navigation (2-step flow) ────────────────────────────── */
 function showStep(n) {
   currentStep = n;
-  stepKey.hidden    = n !== 1;
-  stepUpload.hidden = n !== 2;
-  stepResult.hidden = n !== 3;
+  stepUpload.hidden = n !== 1;
+  stepResult.hidden = n !== 2;
 
-  for (const [i, id] of [[1, 'one'], [2, 'two'], [3, 'three']]) {
-    $('#progress-' + id).classList.toggle('active', i === n);
-  }
+  $('#progress-one')?.classList.toggle('active', n === 1);
+  $('#progress-two')?.classList.toggle('active', n === 2);
 
-  const target = n === 1 ? stepKey : n === 2 ? stepUpload : stepResult;
+  const target = n === 1 ? stepUpload : stepResult;
   target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// Try to restore saved key from localStorage or SITE_CONFIG
-try {
-  const saved = localStorage.getItem(KEY_STORAGE) || window.SITE_CONFIG?.geminiApiKey;
-  if (saved) {
-    keyInput.value = saved;
-    apiKey = saved;
-    saveKeyCheck.checked = true;
-  }
-} catch {}
-
-toggleKeyBtn.addEventListener('click', () => {
-  keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
-  toggleKeyBtn.textContent = keyInput.type === 'password' ? '👁' : '🙈';
-});
-
-btnSetKey.addEventListener('click', () => {
-  const key = keyInput.value.trim();
-  if (!key || key.length < 10) {
-    keyError.textContent = tr('aiKeyInvalid') || 'Please enter a valid API key.';
-    keyError.hidden = false;
-    return;
-  }
-  keyError.hidden = true;
-  apiKey = key;
-
-  // Save or remove from localStorage
+/* ── Active API Key Getter ─────────────────────────────────────── */
+function getActiveApiKey() {
+  const custom = keyInput?.value?.trim();
+  if (custom && custom.length >= 10) return custom;
   try {
-    if (saveKeyCheck.checked) {
-      localStorage.setItem(KEY_STORAGE, key);
-    } else {
-      localStorage.removeItem(KEY_STORAGE);
-    }
+    const saved = localStorage.getItem(KEY_STORAGE);
+    if (saved && saved.length >= 10) return saved;
   } catch {}
+  return window.SITE_CONFIG?.geminiApiKey || DEFAULT_KEY;
+}
 
-  showStep(2);
-});
+// Optional custom key toggle
+if (toggleKeyBtn && keyInput) {
+  toggleKeyBtn.addEventListener('click', () => {
+    keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+    toggleKeyBtn.textContent = keyInput.type === 'password' ? '👁' : '🙈';
+  });
+}
 
-// Allow Enter key to proceed
-keyInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') btnSetKey.click();
-});
-
-/* ── Photo Upload ──────────────────────────────────────────────── */
+/* ── Photo Selection & Camera Capture ─────────────────────────── */
 function handleFile(file) {
   if (!file) return;
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+
+  if (!file.type.startsWith('image/')) {
     uploadError.textContent = tr('fileType') || 'Choose a JPG, PNG or WebP photo.';
     uploadError.hidden = false;
     return;
@@ -117,31 +99,41 @@ function handleFile(file) {
     uploadError.hidden = false;
     return;
   }
+
   uploadError.hidden = true;
   uploadedFile = file;
+
   const url = URL.createObjectURL(file);
   uploadPreview.src = url;
-  uploadPreview.hidden = false;
+  previewWrapper.hidden = false;
   uploadPlaceholder.hidden = true;
-  uploadFilename.textContent = file.name;
+  uploadFilename.textContent = file.name || 'Photo captured';
 }
 
-// Click to upload
-dropZone.addEventListener('click', () => photoInput.click());
-photoInput.addEventListener('change', () => handleFile(photoInput.files[0]));
-
-// Drag and drop
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  handleFile(e.dataTransfer.files[0]);
+// Button actions: Camera vs File
+btnCamera?.addEventListener('click', () => cameraInput?.click());
+btnBrowse?.addEventListener('click', () => fileInput?.click());
+btnChangePhoto?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  fileInput?.click();
 });
 
-btnBackKey.addEventListener('click', () => showStep(1));
+cameraInput?.addEventListener('change', () => handleFile(cameraInput.files[0]));
+fileInput?.addEventListener('change', () => handleFile(fileInput.files[0]));
 
-/* ── File to Base64 ────────────────────────────────────────────── */
+// Drag and drop support
+dropZone?.addEventListener('click', () => {
+  if (!uploadedFile) fileInput?.click();
+});
+dropZone?.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone?.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone?.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+/* ── Convert File to Base64 ────────────────────────────────────── */
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -151,69 +143,64 @@ function fileToBase64(file) {
   });
 }
 
-/* ── Build Prompt ──────────────────────────────────────────────── */
+/* ── Prompt Construction ───────────────────────────────────────── */
 function buildPrompt(context) {
   const lang = window.getLanguage?.() || 'en';
   const langInstruction = lang === 'bn'
-    ? 'Respond in Bangla (বাংলা) language.'
-    : 'Respond in English.';
+    ? 'Respond in clear, accessible Bangla (বাংলা) language with Bengali plant names.'
+    : 'Respond in clear English with local common plant names in brackets.';
 
   const contextMap = {
-    general: 'Provide a comprehensive analysis covering vertical gardening, green corridors, waste management, and any other green interventions.',
-    vertical: 'Focus specifically on vertical gardening opportunities — walls suitable for climbers, creeper plants, and hanging gardens.',
-    corridor: 'Focus specifically on creating green corridors — sidewalk gardens, roadside tree planting, and connecting green spaces.',
-    waste: 'Focus specifically on waste management — optimal placement of waste bins, recycling stations, and community composting spots.',
-    all: 'Provide a comprehensive analysis covering ALL of the following: vertical gardening, green corridors, waste management, and community greening.'
+    general: 'Provide a comprehensive analysis covering vertical gardening, green corridors, waste management, and practical community interventions.',
+    vertical: 'Focus specifically on vertical gardening opportunities — walls suitable for climbers, creeper plants, and wall greening.',
+    corridor: 'Focus specifically on creating green corridors — sidewalk gardens, shade tree pits, and connecting green paths.',
+    waste: 'Focus specifically on waste management — strategic spots for community waste bins, recycling, and keeping drains clear.',
+    all: 'Provide a comprehensive analysis covering ALL of the following: vertical gardening, green corridors, waste management, and quick resident actions.'
   };
 
-  return `You are an urban greening expert specializing in South Asian neighborhoods (especially Bangladesh).
+  return `You are an expert urban ecologist and greening planner specializing in South Asian neighborhoods (especially Bangladesh).
 ${langInstruction}
 
-Analyze this photo of an urban neighborhood and provide practical, actionable green intervention suggestions.
+Carefully inspect this photo of an urban street / building frontage. Identify specific locations and physical elements visible in the picture and provide realistic, community-actionable green interventions.
 
 Focus area: ${contextMap[context] || contextMap.general}
 
-Structure your response EXACTLY like this with these emoji headers:
+Format your response with these exact emoji sections:
 
-🌿 **Vertical Gardening / দেয়ালে সবুজ**
-- Identify bare walls, fences, or vertical surfaces suitable for climbers or creeper plants
-- Suggest specific climate-resilient species: Bougainvillea (বাগানবিলাস), Money Plant (মানি প্ল্যান্ট), Madhabilata (মাধবীলতা), Star Jasmine, Pothos, Aparajita (অপরাজিতা)
-- Note which walls get enough sunlight
+🌿 **Vertical Gardening / দেয়ালে লতাগাছ**
+- Point out bare walls, fences, boundary walls, or grills visible in the photo suitable for climbers.
+- Recommend resilient local species: Bougainvillea (বাগানবিলাস), Money Plant (মানি প্ল্যান্ট), Madhabilata (মাধবীলতা), Star Jasmine, Aparajita (অপরাজিতা).
+- Mention sunlight and root/planter placement.
 
-🌳 **Green Corridors / সবুজ পথ**
-- Identify sidewalk/roadside patches suitable for planting beds or tree pits
-- Suggest shade trees: Neem (নিম), Rain Tree (শিরীষ), Krishnachura (কৃষ্ণচূড়া), Bakul (বকুল)
-- Note areas for ground cover, small hedges, or border plants
+🌳 **Green Corridors & Roadside Trees / সবুজ পথ ও ছায়া**
+- Identify sidewalk, boundary edges, or roadside soil pockets for tree pits or greenery.
+- Recommend indigenous shade species: Neem (নিম), Krishnachura (কৃষ্ণচূড়া), Rain Tree (শিরীষ), Bakul (বকুল).
+- Note clear paths that must remain unobstructed for walking and cycle vans.
 
-🗑️ **Waste & Cleanliness / পরিচ্ছন্নতা**
-- Recommend strategic spots for public waste bins or recycling points
-- Identify areas needing cleanup before greening
-- Suggest community composting if space allows
+🗑️ **Waste Management & Cleanliness / পরিচ্ছন্নতা ও বর্জ্য**
+- Suggest strategic locations for covered community waste bins or segregation spots.
+- Identify open garbage, debris, or drainage spots that should be protected from solid waste.
 
-🏠 **Quick Wins for Homeowners / বাড়ির মালিকদের জন্য**
-- Simple things residents can do immediately
-- Container gardening, window boxes, rooftop options
-- Estimated cost range (low/medium/high)
+🏠 **Quick Wins for Residents & House Owners / বাড়ির মালিকদের জন্য করণীয়**
+- 2-3 simple steps individual residents can do this week (flower pots, window planters, trellis).
+- Low cost, high visual impact.
 
-⚠️ **Things to Check First / আগে যাচাই করুন**
-- Access paths that must stay clear
-- Drainage that must not be blocked
-- Structural concerns for wall-mounted gardens
+⚠️ **Key Checks Before Planting / আগে যাচাই করুন**
+- Ensure road passage, cycle-van clearance, and stormwater drainage lines remain completely free.
 
-Keep suggestions practical and affordable for individual homeowners and small communities in Bangladesh. Use bullet points. Be specific about locations visible in the photo.`;
+Keep all recommendations practical, affordable, and tailored to local community implementation.`;
 }
 
 /* ── Analyze with Gemini ───────────────────────────────────────── */
-btnAnalyze.addEventListener('click', async () => {
+btnAnalyze?.addEventListener('click', async () => {
   if (!uploadedFile) {
-    uploadError.textContent = tr('aiNoPhoto') || 'Please select a photo first.';
+    uploadError.textContent = tr('aiNoPhoto') || 'Please take or choose a photo first.';
     uploadError.hidden = false;
     return;
   }
   uploadError.hidden = true;
-  showStep(3);
+  showStep(2);
 
-  // Show loading
   aiLoading.hidden = false;
   aiResultContent.hidden = true;
   aiError.hidden = true;
@@ -222,10 +209,9 @@ btnAnalyze.addEventListener('click', async () => {
     const base64Data = await fileToBase64(uploadedFile);
     const context = aiContext.value;
     const promptText = buildPrompt(context);
+    const apiKey = getActiveApiKey();
 
-    // Model fallback: tries models with automatic retry on 404 or temporary 503 load
-    let data = null;
-    let lastError = null;
+    // Fallback models in priority order
     const candidateModels = [
       'gemini-3-flash-preview',
       'gemini-3.8-flash',
@@ -233,6 +219,9 @@ btnAnalyze.addEventListener('click', async () => {
       'gemini-flash-latest',
       'gemini-3.1-flash-lite'
     ];
+
+    let data = null;
+    let lastError = null;
 
     for (const model of candidateModels) {
       try {
@@ -245,7 +234,7 @@ btnAnalyze.addEventListener('click', async () => {
               contents: [{
                 parts: [
                   { text: promptText },
-                  { inline_data: { mime_type: uploadedFile.type, data: base64Data } }
+                  { inline_data: { mime_type: uploadedFile.type || 'image/jpeg', data: base64Data } }
                 ]
               }],
               generationConfig: {
@@ -265,7 +254,7 @@ btnAnalyze.addEventListener('click', async () => {
         const msg = errData?.error?.message || `API Error: ${response.status}`;
         lastError = new Error(msg);
 
-        // If the error isn't 404 or 503 (temporary high demand), fail immediately (e.g. invalid key or quota)
+        // On 404 or temporary 503 load, seamlessly try the next model
         if (response.status !== 404 && response.status !== 503) {
           throw lastError;
         }
@@ -285,29 +274,28 @@ btnAnalyze.addEventListener('click', async () => {
 
     const suggestions = data.candidates[0].content.parts[0].text;
 
-    // Show results
+    // Display original photo
+    resultPhoto.src = URL.createObjectURL(uploadedFile);
+
+    // Format & display recommendations
+    suggestionsText.innerHTML = markdownToHtml(suggestions);
+
     aiLoading.hidden = true;
     aiResultContent.hidden = false;
 
-    // Show uploaded photo
-    resultPhoto.src = URL.createObjectURL(uploadedFile);
-
-    // Render suggestions as formatted HTML
-    suggestionsText.innerHTML = markdownToHtml(suggestions);
-
-    // Generate concept image with Pollinations
+    // Generate Pollinations concept image in the background
     generateConceptImage(suggestions);
 
   } catch (error) {
-    console.error('Gemini API error:', error);
+    console.error('AI Analysis Error:', error);
     aiLoading.hidden = true;
     aiError.hidden = false;
 
     let errorMessage = error.message;
     if (error.message.includes('API_KEY_INVALID') || error.message.includes('API key not valid')) {
-      errorMessage = tr('aiKeyBad') || 'Invalid API key. Please go back and enter a valid Gemini API key.';
+      errorMessage = tr('aiKeyBad') || 'API key error. Please check your network or try again.';
     } else if (error.message.includes('RESOURCE_EXHAUSTED') || error.message.includes('quota')) {
-      errorMessage = tr('aiQuota') || 'API quota exceeded. Free tier allows 15 requests/minute. Please wait and try again.';
+      errorMessage = tr('aiQuota') || 'High traffic. Please wait a moment and try again.';
     } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
       errorMessage = tr('aiNetwork') || 'Network error. Please check your internet connection and try again.';
     }
@@ -316,22 +304,17 @@ btnAnalyze.addEventListener('click', async () => {
   }
 });
 
-/* ── Generate Concept Image (Pollinations.ai — free, no key) ─── */
+/* ── Concept Image via Pollinations.ai ─────────────────────────── */
 function generateConceptImage(suggestions) {
   conceptLoading.hidden = false;
   conceptImage.hidden = true;
 
-  // Extract key themes from suggestions for the image prompt
   const visualPrompt = encodeURIComponent(
-    `Photorealistic urban street in Bangladesh transformed with lush green interventions: ` +
-    `vertical climbing plants like bougainvillea and money plant on walls, ` +
-    `neem and rain trees providing shade along sidewalks, ` +
-    `colorful flower pots and hanging gardens on balconies, ` +
-    `clean tidy waste bins at corners, ` +
-    `green ground cover along drainage edges, ` +
-    `community garden patches between buildings, ` +
-    `warm tropical sunlight, vibrant colors, hopeful atmosphere, ` +
-    `before-and-after green transformation, South Asian neighborhood`
+    'Photorealistic vibrant urban street in Bangladesh transformed with lush green interventions, ' +
+    'blooming bougainvillea and emerald money plants climbing building walls, ' +
+    'shady neem trees and krishnachura with bright flowers along the roadside, ' +
+    'clean modern waste bins, tidy sidewalks, potted flower beds on balconies, ' +
+    'clear open drainage, warm sunlight, hopeful eco-neighborhood community atmosphere, high detail'
   );
 
   const imgUrl = `https://image.pollinations.ai/prompt/${visualPrompt}?width=800&height=500&nologo=true&seed=${Date.now()}`;
@@ -342,81 +325,69 @@ function generateConceptImage(suggestions) {
   };
   conceptImage.onerror = () => {
     conceptLoading.hidden = true;
-    // Silently fail — concept image is a bonus feature
-    console.warn('Pollinations concept image failed to load.');
+    console.warn('Concept image preview could not be loaded.');
   };
   conceptImage.src = imgUrl;
 }
 
-/* ── Simple Markdown → HTML ────────────────────────────────────── */
+/* ── Simple Markdown to HTML ───────────────────────────────────── */
 function markdownToHtml(md) {
   return md
-    // Headers
     .replace(/^### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-    // Bold
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Bullet points
     .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
-    // Wrap consecutive <li> in <ul>
     .replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
-    // Paragraphs (lines that aren't wrapped in tags)
-    .replace(/^(?!<[hul])(.*[^\n])$/gm, (match) => {
-      if (match.trim() === '') return '';
-      if (match.startsWith('<')) return match;
+    .replace(/^(?!<[hul])(.*[^\n])$/gm, match => {
+      if (!match.trim() || match.startsWith('<')) return match;
       return `<p>${match}</p>`;
     })
-    // Clean up extra newlines
     .replace(/\n{2,}/g, '\n');
 }
 
-/* ── Navigation buttons ────────────────────────────────────────── */
-btnNewPhoto.addEventListener('click', () => {
-  // Reset upload state
+/* ── Button Actions ────────────────────────────────────────────── */
+btnNewPhoto?.addEventListener('click', () => {
   uploadedFile = null;
-  uploadPreview.hidden = true;
-  uploadPreview.src = '';
+  if (cameraInput) cameraInput.value = '';
+  if (fileInput) fileInput.value = '';
+  previewWrapper.hidden = true;
   uploadPlaceholder.hidden = false;
   uploadFilename.textContent = '';
-  photoInput.value = '';
   conceptImage.hidden = true;
   conceptImage.src = '';
-  showStep(2);
+  showStep(1);
 });
 
-btnRetry.addEventListener('click', () => {
+btnRetry?.addEventListener('click', () => {
   if (uploadedFile) {
     btnAnalyze.click();
   } else {
-    showStep(2);
+    showStep(1);
   }
 });
 
-/* ── Download Results ──────────────────────────────────────────── */
-btnDownload.addEventListener('click', () => {
-  // Create a text summary to download
+btnDownload?.addEventListener('click', () => {
   const sugText = suggestionsText.innerText || suggestionsText.textContent;
   const blob = new Blob([
-    `Green Before Grey — AI Green Advisor Results\n`,
+    `Green Before Grey — AI Green Advisor Plan\n`,
     `Generated: ${new Date().toLocaleString()}\n`,
     `─────────────────────────────────────────────\n\n`,
     sugText,
     `\n\n─────────────────────────────────────────────\n`,
-    `Note: Concept images are AI-generated illustrations.\n`,
-    `Always verify access, drainage, and structural suitability before making changes.\n`
+    `Note: Concept images are illustrative.\n`,
+    `Always verify access clearance and drainage before physical work.\n`
   ], { type: 'text/plain;charset=utf-8' });
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `green-advisor-${Date.now()}.txt`;
+  a.download = `green-plan-${Date.now()}.txt`;
   a.click();
   URL.revokeObjectURL(url);
 });
 
 /* ── Init ──────────────────────────────────────────────────────── */
-showStep(apiKey ? 2 : 1);
+showStep(1);
 
 })();

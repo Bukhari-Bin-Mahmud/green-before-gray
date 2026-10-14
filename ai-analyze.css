@@ -27,6 +27,67 @@
   margin-top: 1.5rem;
 }
 
+/* ── Action Buttons for Camera & File ───────────────────────────── */
+.ai-btn-group {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1.25rem 0 1rem;
+  flex-wrap: wrap;
+}
+
+.ai-btn-group .button {
+  flex: 1;
+  min-width: 140px;
+  justify-content: center;
+  padding: 0.85rem 1.25rem;
+  font-size: 1rem;
+}
+
+.button.large {
+  padding: 0.9rem 1.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  width: 100%;
+  justify-content: center;
+}
+
+#preview-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.change-photo-btn {
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
+}
+
+/* ── Advanced Key (Optional Collapsible) ────────────────────────── */
+.advanced-key-section {
+  margin-top: 2rem;
+  border-top: 1px dashed rgba(213, 229, 161, 0.2);
+  padding-top: 1rem;
+}
+
+.advanced-key-section summary {
+  cursor: pointer;
+  color: rgba(213, 229, 161, 0.65);
+  user-select: none;
+}
+
+.advanced-key-section summary:hover {
+  color: #bad58a;
+}
+
+.advanced-key-box {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 0.5rem;
+}
+
 /* ── API Key Input ─────────────────────────────────────────────── */
 .ai-key-row {
   display: flex;

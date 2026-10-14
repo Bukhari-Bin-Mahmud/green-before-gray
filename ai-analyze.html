@@ -1,58 +1,50 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Green Advisor | Green Before Grey</title>
-<meta name="description" content="Upload a photo of your neighborhood and get AI-powered green intervention suggestions — vertical gardens, green corridors, waste bins and more."><meta name="robots" content="index,follow,max-image-preview:large"><meta name="referrer" content="strict-origin-when-cross-origin"><meta name="theme-color" content="#153b2e">
-<meta property="og:type" content="website"><meta property="og:site_name" content="Green Before Grey"><meta property="og:title" content="AI Green Advisor | Green Before Grey"><meta property="og:description" content="Get AI suggestions for greening your neighborhood."><meta property="og:locale" content="en_GB"><meta property="og:locale:alternate" content="bn_BD"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="AI Green Advisor | Green Before Grey">
+<meta name="description" content="Capture or upload a photo of your neighborhood to receive instant AI-powered green intervention suggestions — vertical gardens, tree corridors, waste bins and concept visuals."><meta name="robots" content="index,follow,max-image-preview:large"><meta name="referrer" content="strict-origin-when-cross-origin"><meta name="theme-color" content="#153b2e">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Green Before Grey"><meta property="og:title" content="AI Green Advisor | Green Before Grey"><meta property="og:description" content="Take or upload a photo to get AI greening suggestions."><meta property="og:locale" content="en_GB"><meta property="og:locale:alternate" content="bn_BD"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="AI Green Advisor | Green Before Grey">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="ai-analyze.css">
 <script defer src="data/pilot-data.js"></script><script defer src="site-config.js"></script><script defer src="i18n.js"></script><script defer src="shared.js"></script><script defer src="ai-analyze.js"></script></head><body class="resident-page"><a class="skip-link" href="#main"><span data-i18n="skip">Skip to content</span></a>
 <header class="header"><a class="wordmark" href="index.html">green before grey<span class="brand-leaf" aria-hidden="true">✳</span></a>
-<nav aria-label="Main navigation"><a href="index.html"><span data-i18n="backHome">Back to the neighborhood</span></a>
+<nav aria-label="Main navigation"><a href="index.html"><span data-i18n="backHome">Back to the neighborhood</span></a><a href="ai-analyze.html" aria-current="page"><span data-i18n="navAI">AI Advisor</span></a>
 </nav><div class="header-actions"><div class="languages" role="group" data-i18n-aria="language" aria-label="Language"><button type="button" data-language="en" aria-pressed="true">EN</button><button type="button" data-language="bn" aria-pressed="false">বাংলা</button></div><button class="menu-toggle" aria-expanded="false" data-i18n-aria="menu" aria-label="Open navigation">☰</button></div></header><main id="main" class="request-main">
 
 <!-- Hero Section -->
 <div class="request-heading">
 <h1><span data-i18n-html="aiPageHeading">AI Green<br><em>Advisor.</em></span></h1>
-<p data-i18n="aiPageIntro">Upload a photo of your neighborhood. AI will suggest green interventions — vertical gardens, green corridors, waste bins and more.</p>
+<p data-i18n="aiPageIntro">Take or upload a photo of your street or house. AI will analyze it and suggest vertical gardens, tree corridors, waste bins, and a colorful green concept.</p>
 </div>
 
-<!-- Progress -->
+<!-- 2-Step Progress -->
 <div class="request-progress" role="list">
-<span id="progress-one" class="active">01 <span data-i18n="aiStepKey">API Key</span></span>
-<span id="progress-two">02 <span data-i18n="aiStepUpload">Upload</span></span>
-<span id="progress-three">03 <span data-i18n="aiStepResult">Results</span></span>
+<span id="progress-one" class="active">01 <span data-i18n="aiStepPhoto">Photo</span></span>
+<span id="progress-two">02 <span data-i18n="aiStepPlans">Green Plans</span></span>
 </div>
 
-<!-- Step 1: API Key -->
-<section id="step-apikey" class="ai-step">
+<!-- Step 1: Capture or Upload Photo -->
+<section id="step-upload" class="ai-step">
 <div class="ai-card">
-<h2 data-i18n="aiKeyHeading">Enter your Gemini API Key</h2>
-<p class="small" data-i18n="aiKeyHelp">Your key stays in this browser only — it is never sent to any server except Google's API. Get a free key from Google AI Studio.</p>
-<div class="ai-key-row">
-<input type="password" id="api-key-input" placeholder="Paste your Gemini API key here..." autocomplete="off" spellcheck="false">
-<button type="button" id="toggle-key-visibility" class="button light" aria-label="Show/hide key">👁</button>
-</div>
-<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="text-link">
-<span data-i18n="aiGetKey">Get free API key from Google AI Studio</span> ↗
-</a>
-<div class="ai-key-status">
-<label class="consent"><input type="checkbox" id="save-key-check"><span data-i18n="aiSaveKey">Remember key in this browser</span></label>
-</div>
-<p id="key-error" class="form-error" role="alert" hidden></p>
-<button type="button" id="btn-set-key" class="button primary"><span data-i18n="aiContinue">Continue</span> →</button>
-</div>
-</section>
+<h2 data-i18n="aiUploadHeading">Capture or upload your photo</h2>
+<p class="small" data-i18n="aiUploadHelp">Take a clear photo with your camera or select from your gallery. JPG, PNG or WebP up to 10 MB.</p>
 
-<!-- Step 2: Upload Photo -->
-<section id="step-upload" class="ai-step" hidden>
-<div class="ai-card">
-<h2 data-i18n="aiUploadHeading">Upload your neighborhood photo</h2>
-<p class="small" data-i18n="aiUploadHelp">Take a clear photo of your house front, street, or walls. JPG, PNG or WebP, up to 10 MB.</p>
+<!-- Buttons for Camera or File selection -->
+<div class="ai-btn-group">
+<button type="button" id="btn-camera" class="button primary"><span data-i18n="aiTakePhoto">📸 Take Photo</span></button>
+<button type="button" id="btn-browse" class="button light"><span data-i18n="aiChooseFile">📁 Choose from Files</span></button>
+</div>
 
+<!-- Hidden inputs: one with capture="environment" for direct mobile camera, one for file browsing -->
+<input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
+<input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden>
+
+<!-- Drop and preview area -->
 <div class="ai-upload-area" id="drop-zone">
 <div class="ai-upload-placeholder" id="upload-placeholder">
-<span class="ai-upload-icon" aria-hidden="true">📷</span>
-<p data-i18n="aiDropPhoto">Click or drag a photo here</p>
+<span class="ai-upload-icon" aria-hidden="true">🌱</span>
+<p data-i18n="aiDropOrClick">or drag and drop an image here</p>
 </div>
-<img id="upload-preview" alt="" hidden>
-<input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp" hidden>
+<div id="preview-wrapper" hidden>
+<img id="upload-preview" alt="Selected photo preview">
+<button type="button" id="btn-change-photo" class="button light change-photo-btn"><span data-i18n="aiRetake">Change Photo</span></button>
+</div>
 </div>
 <span id="upload-filename" class="photo-file-name"></span>
 
@@ -66,25 +58,38 @@
 </select>
 
 <p id="upload-error" class="form-error" role="alert" hidden></p>
-<div class="request-actions">
-<button type="button" id="btn-back-key" class="button light"><span data-i18n="aiBackKey">← Change key</span></button>
-<button type="button" id="btn-analyze" class="button primary"><span data-i18n="aiAnalyze">🌿 Analyze with AI</span></button>
+
+<div class="request-actions" style="margin-top: 1.5rem;">
+<button type="button" id="btn-analyze" class="button primary large"><span data-i18n="aiAnalyze">🌿 Analyze with AI</span> →</button>
 </div>
+
+<!-- Optional details for advanced users who want to supply their own key -->
+<details class="advanced-key-section">
+<summary><small>⚙️ Advanced: Use Custom Gemini API Key (optional)</small></summary>
+<div class="advanced-key-box">
+<p class="small">The website already includes a built-in free API key. If you have your own personal key from Google AI Studio, you can paste it below:</p>
+<div class="ai-key-row">
+<input type="password" id="api-key-input" placeholder="Paste custom key (optional)..." autocomplete="off" spellcheck="false">
+<button type="button" id="toggle-key-visibility" class="button light" aria-label="Show/hide key">👁</button>
+</div>
+</div>
+</details>
+
 </div>
 </section>
 
-<!-- Step 3: Results -->
+<!-- Step 2: Results -->
 <section id="step-result" class="ai-step" hidden>
 <div class="ai-card">
 <h2 data-i18n="aiResultHeading">Green Intervention Suggestions</h2>
 
-<!-- Loading -->
+<!-- Loading state -->
 <div id="ai-loading" class="ai-loading" hidden>
 <div class="ai-spinner"></div>
 <p data-i18n="aiAnalyzing">Analyzing your photo and generating green plans…</p>
 </div>
 
-<!-- Original photo + suggestions side by side -->
+<!-- Result contents -->
 <div id="ai-result-content" hidden>
 <div class="ai-result-grid">
 <div class="ai-result-photo">
@@ -115,7 +120,7 @@
 </div>
 </div>
 
-<!-- Error -->
+<!-- Error state -->
 <div id="ai-error" hidden>
 <p class="form-error" id="ai-error-text"></p>
 <button type="button" id="btn-retry" class="button primary"><span data-i18n="aiRetry">Try again</span></button>
