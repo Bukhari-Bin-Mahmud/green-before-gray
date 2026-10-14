@@ -286,18 +286,82 @@
   color: #d5e5a1;
 }
 
-/* ── Concept Image ─────────────────────────────────────────────── */
+/* ── Concept Visualization & Swipe Slider ──────────────────────── */
 .ai-concept-section {
   margin-top: 2rem;
   padding-top: 1.5rem;
   border-top: 1px solid rgba(213, 229, 161, 0.15);
 }
 
-.ai-concept-section img {
+.concept-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.concept-view-tabs {
+  display: flex;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.3rem;
+  border-radius: 2rem;
+  border: 1px solid rgba(213, 229, 161, 0.2);
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: #bad58a;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.45rem 0.9rem;
+  border-radius: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: #fff;
+}
+
+.tab-btn.active {
+  background: #bad58a;
+  color: #153b2e;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+#concept-swipe-container {
   width: 100%;
+  margin-top: 0.5rem;
+}
+
+#user-photo-swipe {
   border-radius: 0.75rem;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
-  margin-top: 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  min-height: 380px;
+  background: #153b2e;
+}
+
+#user-photo-swipe .swipe-base,
+#user-photo-swipe .swipe-before {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  inset: 0;
+}
+
+#user-photo-swipe .swipe-label {
+  z-index: 2;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: rgba(21, 59, 46, 0.85);
+  color: #e8f0d4;
+  border: 1px solid rgba(213, 229, 161, 0.3);
+  border-radius: 4px;
 }
 
 /* ── Error ──────────────────────────────────────────────────────── */

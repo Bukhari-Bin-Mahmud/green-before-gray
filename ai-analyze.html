@@ -115,15 +115,42 @@
 </div>
 </div>
 
-<!-- Concept visualization -->
+<!-- Concept visualization: Interactive Before/After Transformation Slider + Khulna Renewal Concept -->
 <div class="ai-concept-section">
-<h3 data-i18n="aiConceptTitle">🎨 Green Vision — Concept Image</h3>
-<p class="small" data-i18n="aiConceptNote">AI-generated concept showing how your area could look with green interventions.</p>
-<div id="concept-loading" class="ai-loading" hidden>
-<div class="ai-spinner"></div>
-<p data-i18n="aiGeneratingConcept">Generating concept image…</p>
-</div>
-<img id="concept-image" alt="Green concept visualization" hidden>
+  <div class="concept-header">
+    <div>
+      <h3 data-i18n="aiConceptTitle">🎨 Visual Transformation — Before &amp; After</h3>
+      <p class="small" data-i18n="aiConceptNote">Drag the slider to see how your exact street or building transforms with green interventions.</p>
+    </div>
+    <div class="concept-view-tabs" role="tablist">
+      <button type="button" id="tab-slider" class="tab-btn active">🌱 Your Photo (Transformed)</button>
+      <button type="button" id="tab-watercolor" class="tab-btn">🎨 Khulna Renewal Concept</button>
+    </div>
+  </div>
+
+  <div id="concept-loading" class="ai-loading" hidden>
+    <div class="ai-spinner"></div>
+    <p data-i18n="aiGeneratingConcept">Rendering green transformation visual…</p>
+  </div>
+
+  <!-- Interactive Before & After Swipe Slider -->
+  <div id="concept-swipe-container">
+    <div class="swipe" id="user-photo-swipe" data-swipe style="--split: 50%;">
+      <img id="swipe-transformed" class="swipe-base" alt="AI Green Transformation">
+      <img id="swipe-original" class="swipe-before" alt="Original Condition">
+      <span class="swipe-label left">Existing Condition</span>
+      <span class="swipe-label right">Green Transformation 🌿</span>
+      <button type="button" class="swipe-handle" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-label="Drag to compare before and after">
+        <span>↔</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Watercolor Renewal Concept Image (Alternate view) -->
+  <div id="concept-watercolor-container" hidden>
+    <img id="watercolor-image" src="assets/khulna-renewal.png" alt="Watercolor Renewal of a Khulna Lane" style="width: 100%; border-radius: 0.75rem; box-shadow: 0 2px 12px rgba(0,0,0,0.25);">
+    <p class="small" style="margin-top: 0.5rem; text-align: center; color: #bad58a;">Illustrated Watercolor Renewal Concept for a Khulna Neighborhood Lane</p>
+  </div>
 </div>
 
 <!-- Action buttons -->
