@@ -13,7 +13,7 @@ const hf3 = "ToapSrQJrOu";
 const HF_TOKEN = hf1 + hf2 + hf3;
 
 /* ── Architectural Illustrative Editing Prompt Constant ────────── */
-const ARCHITECTURAL_EDIT_PROMPT = "Transform this street photo into an architectural illustrative urban greening proposal while keeping the exact original buildings, windows, sky, overhead wires, and road layout 100% unchanged and aligned. Only add bamboo vertical garden trellises with climbing green vines and small flowers mounted onto the bare walls and fences, neat landscaped fern and shrub planter beds along both sides of the path, clean concrete drain covers along the road edge, and remove any litter. Give the added greenery and street edges a clean architectural watercolor and marker illustration blend that matches the original photo perspective.";
+const ARCHITECTURAL_EDIT_PROMPT = "Photorealistic street photography edit: Keep the exact original buildings, walls, gates, vehicles, overhead wires, sky, and road layout 100% unchanged in their original real-life camera texture and natural lighting. Only add realistic urban greening onto the bare or messy areas: mount real bamboo trellises with lush green climbing creeper vines onto bare concrete or brick walls, replace any roadside dirt, weeds, or litter with neat concrete planter beds filled with real green shrubs and tropical plants, and place a clean modern waste bin beside the walkway. Match the exact camera grain, shadows, and natural daylight of the original photograph.";
 
 /* ── Built-in API Key (decoded at runtime) ─────────────────────── */
 const DEFAULT_KEY = atob('QVEuQWI4Uk42SXNNX0ZUNm5DV1VPNk9JRHAtckw0a1pnNGs0TkVnS1RsY0twSk9uZWRCbmc=');
@@ -255,7 +255,7 @@ Return your response as a valid JSON object with EXACTLY these two keys:
 ⚠️ **Key Checks Before Planting / আগে যাচাই করুন**
 - Ensure road passage, cycle-van clearance, and stormwater drainage lines remain completely free.
 
-2. "edit_prompt": A concise instruction for direct image editing: "Transform this street photo into an architectural illustrative urban greening proposal while keeping the exact original buildings, windows, sky, overhead wires, and road layout 100% unchanged and aligned. Only add bamboo vertical garden trellises with climbing green vines and small flowers mounted onto the bare walls and fences, neat landscaped fern and shrub planter beds along both sides of the path, clean concrete drain covers along the road edge, and remove any litter."`;
+2. "edit_prompt": A concise instruction for direct image editing: "Photorealistic street photography edit: Keep the exact original buildings, walls, gates, vehicles, overhead wires, sky, and road layout 100% unchanged in their original real-life camera texture and natural lighting. Only add realistic urban greening onto the bare or messy areas: mount real bamboo trellises with lush green climbing creeper vines onto bare concrete or brick walls, replace any roadside dirt, weeds, or litter with neat concrete planter beds filled with real green shrubs and tropical plants, and place a clean modern waste bin beside the walkway. Match the exact camera grain, shadows, and natural daylight of the original photograph."`;
 }
 
 /* ── Local Intelligent GIS-Aware Botanical Action Plan Engine ───── */
