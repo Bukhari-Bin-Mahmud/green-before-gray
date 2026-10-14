@@ -56,33 +56,17 @@
 </div>
 <span id="upload-filename" class="photo-file-name"></span>
 
-<!-- Goal Selector with Visual Filter Chips -->
-<label class="field-label" for="ai-context"><span data-i18n="aiContext">What do you want to improve? (optional)</span></label>
-<div class="ai-goal-chips" id="goal-chips" role="radiogroup" aria-label="Improvement Focus">
-  <button type="button" class="goal-chip active" data-goal="all">🌿 All Interventions</button>
-  <button type="button" class="goal-chip" data-goal="vertical">🧗 Wall Climbers &amp; Vines</button>
-  <button type="button" class="goal-chip" data-goal="corridor">🌳 Green Tree Corridors</button>
-  <button type="button" class="goal-chip" data-goal="waste">🗑️ Community Waste Bays</button>
-</div>
-<select id="ai-context" class="sr-only">
-<option value="all" selected data-i18n="aiGoalAll">All of the above</option>
-<option value="vertical" data-i18n="aiGoalVertical">Vertical gardening & wall climbers</option>
-<option value="corridor" data-i18n="aiGoalCorridor">Green corridors & tree planting</option>
-<option value="waste" data-i18n="aiGoalWaste">Waste bins & cleanliness</option>
-<option value="general" data-i18n="aiGoalGeneral">General green suggestions</option>
-</select>
-
 <p id="upload-error" class="form-error" role="alert" hidden></p>
 
-<div class="request-actions" style="margin-top: 1.75rem;">
-<button type="button" id="btn-analyze" class="button primary large"><span data-i18n="aiAnalyze">🌿 Analyze with AI</span> →</button>
+<div class="request-actions" style="margin-top: 1.5rem;">
+<button type="button" id="btn-analyze" class="button primary large"><span data-i18n="aiAnalyze">🌿 Generate AI Green Plan</span> →</button>
 </div>
 
 <!-- Optional details for advanced users who want to supply their own key -->
 <details class="advanced-key-section">
-<summary><small>⚙️ Advanced: Use Custom Gemini API Key (optional)</small></summary>
+<summary><small>⚙️ Advanced: Custom Gemini API Key (optional)</small></summary>
 <div class="advanced-key-box">
-<p class="small">The website already includes a built-in free API key. If you have your own personal key from Google AI Studio, you can paste it below:</p>
+<p class="small">A free built-in key is already active. If you wish to use your own personal key from Google AI Studio, enter it below:</p>
 <div class="ai-key-row">
 <input type="password" id="api-key-input" placeholder="Paste custom key (optional)..." autocomplete="off" spellcheck="false">
 <button type="button" id="toggle-key-visibility" class="button light" aria-label="Show/hide key">👁</button>
@@ -97,18 +81,26 @@
 <section id="step-result" class="ai-step" hidden>
 <div class="ai-card">
 
-<!-- Loading state with botanical animations, high-contrast text, progress bar & microtips -->
-<div id="ai-loading" class="ai-loading" hidden>
-  <div class="ai-loading-botanical">
-    <div class="ai-spinner-outer"></div>
-    <div class="ai-spinner-inner"></div>
-    <div class="ai-spinner-center"></div>
+<!-- Natural Botanical Sprouting Loader -->
+<div id="ai-loading" class="ai-loading-botanical" hidden>
+  <div class="botanical-sprout-art" aria-hidden="true">
+    <svg viewBox="0 0 100 100" class="natural-sprout-svg" width="90" height="90">
+      <!-- Soil mound -->
+      <path class="sprout-soil-line" d="M18 84 Q50 76 82 84" stroke="#718664" stroke-width="3" stroke-linecap="round" fill="none" />
+      <!-- Organic curving plant stem -->
+      <path class="sprout-stem-organic" d="M50 80 C48 62 52 44 50 25" stroke="#244f39" stroke-width="3.5" stroke-linecap="round" fill="none" />
+      <!-- Lower left leaf -->
+      <path class="sprout-leaf leaf-left" d="M50 62 C34 60 26 46 36 38 C44 42 49 54 50 62 Z" fill="#4d7c43" />
+      <!-- Middle right leaf -->
+      <path class="sprout-leaf leaf-right" d="M50 48 C66 44 74 30 64 24 C56 28 51 40 50 48 Z" fill="#678f4e" />
+      <!-- Top tender shoot -->
+      <path class="sprout-leaf leaf-top" d="M50 36 C42 30 38 18 46 14 C51 16 52 26 50 36 Z" fill="#88b560" />
+      <!-- Bud bloom -->
+      <circle class="sprout-bud-bloom" cx="50" cy="24" r="4.5" fill="#d0e3a3" stroke="#244f39" stroke-width="1.5" />
+    </svg>
   </div>
-  <p id="ai-loading-status" data-i18n="aiAnalyzing">Analyzing your photo and generating green plans…</p>
-  <div class="ai-loading-bar" aria-hidden="true">
-    <div class="ai-loading-bar-fill"></div>
-  </div>
-  <p id="ai-loading-microtip" class="ai-loading-microtip">Scanning walls, curbs, and roadside pockets for greening opportunities…</p>
+  <h3 id="ai-loading-status" data-i18n="aiAnalyzing" class="natural-loading-title">Observing your space &amp; nurturing green plans…</h3>
+  <p id="ai-loading-microtip" class="ai-loading-microtip">Scanning for bare walls, curb tree pits and clear walking passage…</p>
 </div>
 
 <!-- Result contents -->
@@ -126,9 +118,17 @@
       </div>
     </div>
 
-    <div id="concept-loading" class="ai-loading" hidden>
-      <div class="ai-spinner"></div>
-      <p data-i18n="aiGeneratingConcept">Rendering green transformation visual…</p>
+    <div id="concept-loading" class="ai-loading-botanical" hidden style="padding: 2.5rem 1rem; margin: 1rem 0;">
+      <div class="botanical-sprout-art" aria-hidden="true" style="margin-bottom: 0.75rem;">
+        <svg viewBox="0 0 100 100" class="natural-sprout-svg" width="64" height="64">
+          <path class="sprout-soil-line" d="M18 84 Q50 76 82 84" stroke="#718664" stroke-width="3" stroke-linecap="round" fill="none" />
+          <path class="sprout-stem-organic" d="M50 80 C48 62 52 44 50 25" stroke="#244f39" stroke-width="3.5" stroke-linecap="round" fill="none" />
+          <path class="sprout-leaf leaf-left" d="M50 62 C34 60 26 46 36 38 C44 42 49 54 50 62 Z" fill="#4d7c43" />
+          <path class="sprout-leaf leaf-right" d="M50 48 C66 44 74 30 64 24 C56 28 51 40 50 48 Z" fill="#678f4e" />
+          <circle class="sprout-bud-bloom" cx="50" cy="24" r="4.5" fill="#d0e3a3" stroke="#244f39" stroke-width="1.5" />
+        </svg>
+      </div>
+      <p data-i18n="aiGeneratingConcept" style="font-family: var(--serif); color: var(--ink); margin: 0; font-size: 16px;">Rendering green transformation visual…</p>
     </div>
 
     <!-- Interactive Before & After Swipe Slider -->

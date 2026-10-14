@@ -180,18 +180,6 @@ dropZone?.addEventListener('drop', e => {
   if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]);
 });
 
-// Goal Filter Chips
-const goalChips = document.querySelectorAll('.goal-chip');
-goalChips.forEach(chip => {
-  chip.addEventListener('click', () => {
-    goalChips.forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    if (aiContext) {
-      aiContext.value = chip.dataset.goal || 'all';
-    }
-  });
-});
-
 /* ── Convert File to Base64 ────────────────────────────────────── */
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -362,7 +350,7 @@ btnAnalyze?.addEventListener('click', async () => {
 
   try {
     const base64Data = await fileToBase64(uploadedFile);
-    const context = aiContext.value;
+    const context = 'all';
     const promptText = buildPrompt(context);
     const apiKey = getActiveApiKey();
 
