@@ -50,8 +50,41 @@ const suggestionsText  = $('#suggestions-text');
 const conceptLoading   = $('#concept-loading');
 const conceptImage     = $('#concept-image');
 const btnNewPhoto      = $('#btn-new-photo');
-const btnDownload      = $('#btn-download-result');
-const btnRetry         = $('#btn-retry');
+/* ── GIS Spatial Context from URL ──────────────────────────────── */
+const urlParams = new URLSearchParams(window.location.search);
+const gisData = {
+  cell: urlParams.get('cell') || '',
+  lat: urlParams.get('lat') || '',
+  lon: urlParams.get('lon') || '',
+  veg: urlParams.get('veg') || '',
+  delta: urlParams.get('delta') || ''
+};
+
+const gisBanner     = $('#gis-banner');
+const gisCellTitle  = $('#gis-cell-title');
+const gisCellStats  = $('#gis-cell-stats');
+
+function initGisBanner() {
+  if (!gisData.cell || !gisBanner) return;
+  gisBanner.hidden = false;
+  const cleanId = gisData.cell.replace(/^50m_/, '').replaceAll('_', ' / ');
+  if (gisCellTitle) gisCellTitle.textContent = cleanId;
+
+  const vegNum = Number(gisData.veg);
+  let statusText = 'Zero Point, Khulna';
+  if (Number.isFinite(vegNum)) {
+    const isGap = vegNum < 25;
+    const gapTag = isGap
+      ? ' · ⚠️ ' + (tr('gisVegGap') || 'Critical Vegetation Gap (<25%)')
+      : ' · ' + vegNum.toFixed(1) + '% ' + (tr('vegetation') || 'Greenness');
+    statusText += gapTag;
+  }
+  const deltaNum = Number(gisData.delta);
+  if (Number.isFinite(deltaNum)) {
+    statusText += ' · ' + (deltaNum < 0 ? '−' : '+') + Math.abs(deltaNum).toFixed(3) + ' NDVI';
+  }
+  if (gisCellStats) gisCellStats.textContent = statusText;
+}
 
 /* ── Step Navigation (2-step flow) ────────────────────────────── */
 function showStep(n) {
@@ -158,9 +191,22 @@ function buildPrompt(context) {
     all: 'Provide a comprehensive analysis covering ALL of the following: vertical gardening, green corridors, waste management, and quick resident actions.'
   };
 
+  let gisPrompt = '';
+  if (gisData.cell) {
+    const vegNum = Number(gisData.veg);
+    gisPrompt = `
+MAP & GIS SPATIAL DATA (from Sentinel-2 satellite analysis):
+- Selected Grid Cell: ${gisData.cell} at Zero Point, Khulna, Bangladesh (${gisData.lat}, ${gisData.lon})
+- Satellite Measured Greenness: ${Number.isFinite(vegNum) ? vegNum.toFixed(1) + '%' : 'deficit area'}
+${vegNum < 25 ? '- ALERT: This location is classified as a CRITICAL VEGETATION GAP (<25% greenness). High priority for immediate greening interventions!' : ''}
+${gisData.delta ? `- 7-year NDVI change (2019-2026): ${gisData.delta}` : ''}
+Explicitly connect your recommendations to closing this measured greenery deficit in the neighborhood.
+`;
+  }
+
   return `You are an expert urban ecologist and greening planner specializing in South Asian neighborhoods (especially Bangladesh).
 ${langInstruction}
-
+${gisPrompt}
 Carefully inspect this photo of an urban street / building frontage. Identify specific locations and physical elements visible in the picture and provide realistic, community-actionable green interventions.
 
 Focus area: ${contextMap[context] || contextMap.general}
@@ -309,12 +355,17 @@ function generateConceptImage(suggestions) {
   conceptLoading.hidden = false;
   conceptImage.hidden = true;
 
+  const isGap = Number(gisData.veg) < 25;
+  const transformGoal = isGap
+    ? 'transforming a concrete urban vegetation gap into a lush green neighborhood'
+    : 'transforming an urban neighborhood with vibrant green corridors';
+
   const visualPrompt = encodeURIComponent(
-    'Photorealistic vibrant urban street in Bangladesh transformed with lush green interventions, ' +
-    'blooming bougainvillea and emerald money plants climbing building walls, ' +
-    'shady neem trees and krishnachura with bright flowers along the roadside, ' +
-    'clean modern waste bins, tidy sidewalks, potted flower beds on balconies, ' +
-    'clear open drainage, warm sunlight, hopeful eco-neighborhood community atmosphere, high detail'
+    `Photorealistic vibrant street in Khulna Bangladesh, ${transformGoal}: ` +
+    `blooming bougainvillea and emerald money plants climbing building walls, ` +
+    `shady neem trees and krishnachura with bright red flowers along the roadside, ` +
+    `tidy modern community waste bins, clean open drainage, potted flower beds on balconies, ` +
+    `warm sunlight, hopeful eco-neighborhood community atmosphere, high detail 4k`
   );
 
   const imgUrl = `https://image.pollinations.ai/prompt/${visualPrompt}?width=800&height=500&nologo=true&seed=${Date.now()}`;
@@ -388,6 +439,8 @@ btnDownload?.addEventListener('click', () => {
 });
 
 /* ── Init ──────────────────────────────────────────────────────── */
+initGisBanner();
+window.addEventListener('languagechange', initGisBanner);
 showStep(1);
 
 })();

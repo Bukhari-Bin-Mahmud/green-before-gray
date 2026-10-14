@@ -21,6 +21,19 @@
 
 <!-- Step 1: Capture or Upload Photo -->
 <section id="step-upload" class="ai-step">
+
+<!-- GIS Grid Context Banner (populated when user chooses a grid on the map) -->
+<div id="gis-banner" class="gis-banner" hidden>
+  <div class="gis-banner-content">
+    <div class="gis-banner-top">
+      <span class="gis-pill" data-i18n="gisBadge">Selected GIS Grid</span>
+      <strong id="gis-cell-title"></strong>
+    </div>
+    <p id="gis-cell-stats" class="gis-stats"></p>
+  </div>
+  <a href="index.html#explore" class="text-link gis-change-link"><span data-i18n="navMap">Change Grid on Map</span> ↗</a>
+</div>
+
 <div class="ai-card">
 <h2 data-i18n="aiUploadHeading">Capture or upload your photo</h2>
 <p class="small" data-i18n="aiUploadHelp">Take a clear photo with your camera or select from your gallery. JPG, PNG or WebP up to 10 MB.</p>

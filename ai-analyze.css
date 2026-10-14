@@ -9,6 +9,61 @@
   padding: 0 var(--gutter, 1.25rem);
 }
 
+/* ── GIS Grid Context Banner ───────────────────────────────────── */
+.gis-banner {
+  background: rgba(186, 213, 138, 0.12);
+  border: 1.5px solid #bad58a;
+  border-radius: 0.85rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.gis-banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.gis-banner-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.gis-pill {
+  background: #bad58a;
+  color: #153b2e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 2rem;
+}
+
+.gis-banner strong {
+  color: #d5e5a1;
+  font-size: 1.05rem;
+}
+
+.gis-stats {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #e8f0d4;
+  opacity: 0.9;
+}
+
+.gis-change-link {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 .ai-card {
   background: var(--card-bg, #1e3529);
   border-radius: 1rem;
