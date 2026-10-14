@@ -74,9 +74,11 @@
   color: var(--ink, #183d2f);
   border: 1px solid #cad6c2;
   border-radius: 4px;
-  padding: clamp(1.5rem, 3.5vw, 2.5rem);
-  margin-bottom: 3rem;
+  padding: clamp(1.25rem, 3.5vw, 2.25rem);
+  margin-bottom: 2.5rem;
   box-shadow: 0 4px 20px rgba(24, 61, 47, 0.05);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .ai-card h2 {
@@ -332,22 +334,64 @@
 /* ── Visual Transformation (matches home page .swipe) ──────────── */
 .ai-concept-section {
   margin-bottom: 2rem;
+  width: 100%;
 }
 
 .concept-header {
   margin-bottom: 1.25rem;
 }
 
+.concept-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.concept-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(24px, 2.8vw, 36px);
+  color: var(--ink, #183d2f);
+}
+
+.ai-model-pill {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1b4332;
+  background: #d4e7a8;
+  border: 1px solid #b7d189;
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 #concept-swipe-container {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 1rem 0;
+  overflow: hidden;
+  border-radius: 4px;
 }
 
 #user-photo-swipe {
-  border-radius: 3px;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 520px;
+  min-height: 280px;
+  border-radius: 4px;
   box-shadow: 0 4px 20px rgba(24, 61, 47, 0.12);
-  min-height: 400px;
   background: #dae2cf;
   border: 1px solid #c9d4bd;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
 }
 
 #user-photo-swipe .swipe-base,
@@ -385,42 +429,52 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* ── Results Bento Grid & Action Plans ─────────────────────────── */
-.ai-result-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.75rem;
-  margin-bottom: 2rem;
+/* ── Actionable Interventions Bento Grid ───────────────────────── */
+.ai-interventions-section {
+  margin-top: 2rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid #cbd6c0;
+  width: 100%;
 }
 
-@media (min-width: 760px) {
-  .ai-result-grid {
-    grid-template-columns: 320px 1fr;
+.interventions-header {
+  margin-bottom: 1.25rem;
+}
+
+.interventions-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(24px, 2.8vw, 36px);
+  color: var(--ink, #183d2f);
+}
+
+.ai-bento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+  margin-top: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .ai-bento-grid {
+    grid-template-columns: 1fr;
   }
 }
 
-.ai-result-photo img {
-  width: 100%;
-  border-radius: 3px;
-  box-shadow: 0 2px 10px rgba(24, 61, 47, 0.1);
-  border: 1px solid #cad3bd;
-}
-
-.ai-suggestions-text {
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-/* Bento card styling for each structured recommendation section */
+/* Bento card styling */
 .ai-plan-card {
   background: #f7f6ee;
   border: 1px solid #cbd6c0;
   border-left: 4px solid var(--green, #244f39);
   border-radius: 3px;
-  padding: 1.25rem 1.4rem;
-  margin-bottom: 1.25rem;
+  padding: 1.35rem 1.45rem;
   box-shadow: 0 2px 8px rgba(24, 61, 47, 0.04);
-  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
 .ai-plan-card:hover {
@@ -445,29 +499,35 @@
 }
 
 .ai-plan-card.card-warning {
+  grid-column: 1 / -1;
   border-left-color: #b8603e;
   background: #fdf5f0;
 }
 
 .ai-plan-card h3,
 .ai-plan-card h4 {
-  margin-top: 0;
+  margin: 0 0 0.65rem;
   font-family: var(--serif);
   color: var(--ink, #183d2f);
   font-size: 19px;
   font-weight: 400;
+  line-height: 1.25;
 }
 
 .ai-plan-card ul {
   padding-left: 1.25rem;
-  margin: 0.5rem 0;
+  margin: 0;
 }
 
 .ai-plan-card li {
   margin-bottom: 0.45rem;
   color: #4a5b4c;
   font-size: 13.5px;
-  line-height: 1.65;
+  line-height: 1.6;
+}
+
+.ai-plan-card li:last-child {
+  margin-bottom: 0;
 }
 
 .ai-plan-card strong {

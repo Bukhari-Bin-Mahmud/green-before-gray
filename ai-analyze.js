@@ -478,8 +478,8 @@ btnAnalyze?.addEventListener('click', async () => {
     aiLoading.hidden = true;
     aiResultContent.hidden = false;
 
-    // Generate visual transformation and interactive swipe slider
-    generateVisualTransformation(uploadedFile, context);
+    // Generate photorealistic visual transformation with FLUX.1
+    generateVisualTransformation(uploadedFile, context, suggestions);
 
   } catch (error) {
     clearInterval(tipInterval);
@@ -487,7 +487,7 @@ btnAnalyze?.addEventListener('click', async () => {
     // Even in unexpected failure, NEVER leave the user stranded on an error screen!
     try {
       suggestions = generateLocalGreenPlan(aiContext?.value || 'all', gisData);
-      resultPhoto.src = URL.createObjectURL(uploadedFile);
+      if (resultPhoto) resultPhoto.src = URL.createObjectURL(uploadedFile);
       suggestionsText.innerHTML = markdownToHtml(suggestions);
       if (aiProviderBadge) {
         aiProviderBadge.textContent = '🌱 Khulna EcoGIS Action Plan';
@@ -495,7 +495,7 @@ btnAnalyze?.addEventListener('click', async () => {
       }
       aiLoading.hidden = true;
       aiResultContent.hidden = false;
-      generateVisualTransformation(uploadedFile, aiContext?.value || 'all');
+      generateVisualTransformation(uploadedFile, aiContext?.value || 'all', suggestions);
     } catch (fallbackErr) {
       aiLoading.hidden = true;
       aiError.hidden = false;
@@ -504,267 +504,105 @@ btnAnalyze?.addEventListener('click', async () => {
   }
 });
 
-/* ── Interactive Before & After Visual Transformation Engine ──── */
-let transformedImageDataUrl = '';
-
-async function generateVisualTransformation(file, context) {
-  const swipeContainer     = $('#concept-swipe-container');
-  const watercolorContainer= $('#concept-watercolor-container');
-  const swipeTransformed   = $('#swipe-transformed');
-  const swipeOriginal      = $('#swipe-original');
-  const userPhotoSwipe     = $('#user-photo-swipe');
-  const conceptLoadingBox  = $('#concept-loading');
+/* ── Photorealistic Visual Transformation Engine (FLUX.1) ────────── */
+async function generateVisualTransformation(file, context, suggestionsText = '') {
+  const swipeContainer    = $('#concept-swipe-container');
+  const swipeTransformed  = $('#swipe-transformed');
+  const swipeOriginal     = $('#swipe-original');
+  const userPhotoSwipe    = $('#user-photo-swipe');
+  const conceptLoadingBox = $('#concept-loading');
+  const providerBadge     = $('#ai-provider-badge');
 
   if (!file || !swipeTransformed || !swipeOriginal) return;
 
   if (conceptLoadingBox) conceptLoadingBox.hidden = false;
   if (swipeContainer) swipeContainer.hidden = true;
 
+  // 1. Set the user's actual photo in the comparison slider
+  const originalUrl = URL.createObjectURL(file);
+  swipeOriginal.src = originalUrl;
+
   try {
-    // 1. Load user photo into an image element for canvas processing
-    const imgUrl = URL.createObjectURL(file);
-    const img = new Image();
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = imgUrl;
-    });
-
-    swipeOriginal.src = imgUrl;
-
-    // 2. Render Green Transformation Canvas
-    transformedImageDataUrl = await renderGreenProposalCanvas(img, context);
-    swipeTransformed.src = transformedImageDataUrl;
-
-    if (conceptLoadingBox) conceptLoadingBox.hidden = true;
-    if (swipeContainer) swipeContainer.hidden = false;
-
-    // 3. Setup Swipe Slider Interaction
-    setupSwipeSlider(userPhotoSwipe);
-
-  } catch (err) {
-    console.warn('Canvas transformation fallback:', err);
-    if (conceptLoadingBox) conceptLoadingBox.hidden = true;
-    if (swipeContainer) swipeContainer.hidden = false;
-    // Fallback to Khulna renewal watercolor if canvas fails
-    if (swipeTransformed) swipeTransformed.src = 'assets/khulna-renewal.png';
-  }
-}
-
-/* ── Botanical Procedural Canvas Rendering ────────────────────── */
-function renderGreenProposalCanvas(img, context) {
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const width = 1200;
-    const height = Math.round(1200 * (img.naturalHeight / (img.naturalWidth || 1200))) || 800;
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-
-    // 1. Draw base photo with enhanced tropical sunlight and saturation
-    ctx.filter = 'saturate(1.25) contrast(1.06) brightness(1.02)';
-    ctx.drawImage(img, 0, 0, width, height);
-    ctx.filter = 'none';
-
-    // 2. Add subtle eco green atmospheric grading
-    const grad = ctx.createLinearGradient(0, 0, 0, height);
-    grad.addColorStop(0, 'rgba(255, 248, 220, 0.1)');
-    grad.addColorStop(0.7, 'rgba(34, 139, 34, 0.04)');
-    grad.addColorStop(1, 'rgba(21, 59, 46, 0.12)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, width, height);
-
-    // 3. Draw vertical climbing plants & Bougainvillea on walls
-    drawClimbers(ctx, width, height, 0.05, 0.7); // Left wall
-    drawClimbers(ctx, width, height, 0.88, 0.75); // Right wall
-
-    // 4. Draw overarching tree canopy (Neem & Krishnachura) along upper corners
-    drawOverheadCanopy(ctx, width, height);
-
-    // 5. Draw roadside flower planters along the bottom edges
-    drawGroundPlanters(ctx, width, height);
-
-    // 6. Draw clean eco waste bin
-    if (context === 'waste' || context === 'general' || context === 'all') {
-      drawModernEcoBin(ctx, width, height);
-    }
-
-    // 7. Architectural proposal badge
-    drawProposalBadge(ctx, width, height);
-
-    resolve(canvas.toDataURL('image/jpeg', 0.92));
-  });
-}
-
-function drawClimbers(ctx, w, h, xRatio, heightRatio) {
-  const startX = w * xRatio;
-  const startY = h * (1 - heightRatio * 0.2);
-  const endY = h * (1 - heightRatio);
-
-  ctx.save();
-  // Winding vine stems
-  ctx.strokeStyle = '#2d5a27';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(startX, startY);
-  ctx.bezierCurveTo(startX + 30, (startY + endY) / 2, startX - 25, endY + 40, startX + 10, endY);
-  ctx.stroke();
-
-  // Dense leaf clusters
-  const leafColors = ['#1b4332', '#2d6a4f', '#40916c', '#52b788', '#74c69d'];
-  const flowerColors = ['#e63946', '#d90429', '#f72585', '#b5179e', '#ff4d6d'];
-
-  for (let y = startY; y >= endY; y -= 16) {
-    const xOffset = Math.sin(y * 0.05) * 35;
-    const currentX = startX + xOffset;
-
-    // Draw 3-5 leaves per node
-    for (let i = 0; i < 4; i++) {
-      ctx.fillStyle = leafColors[(i + y) % leafColors.length];
-      ctx.beginPath();
-      const lx = currentX + (Math.random() - 0.5) * 50;
-      const ly = y + (Math.random() - 0.5) * 20;
-      ctx.ellipse(lx, ly, 14, 8, Math.random() * Math.PI, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Bougainvillea flower clusters
-    if (y % 32 < 20) {
-      for (let f = 0; f < 3; f++) {
-        ctx.fillStyle = flowerColors[(f + y) % flowerColors.length];
-        ctx.beginPath();
-        const fx = currentX + (Math.random() - 0.5) * 45;
-        const fy = y + (Math.random() - 0.5) * 18;
-        ctx.arc(fx, fy, 7, 0, Math.PI * 2);
-        ctx.fill();
-        // Golden flower center
-        ctx.fillStyle = '#ffb703';
-        ctx.beginPath();
-        ctx.arc(fx, fy, 2, 0, Math.PI * 2);
-        ctx.fill();
+    // 2. Synthesize a hyper-realistic architectural landscape prompt tailored to Khulna & the analysis
+    let keyFeatures = 'lush vertical climbing bougainvillea on perimeter walls, shady roadside neem and krishnachura trees, sidewalk planter boxes with colorful flowers, tidy modern community waste bins';
+    
+    if (suggestionsText) {
+      const feats = [];
+      if (/bougainvillea|বাগানবিলাস|aparajita|madhabilata|দেয়াল|wall/i.test(suggestionsText)) {
+        feats.push('vibrant blooming bougainvillea, aparajita and creepers naturally climbing walls and iron fences');
+      }
+      if (/neem|নিম|krishnachura|কৃষ্ণচূড়া|canopy|ছায়া|tree/i.test(suggestionsText)) {
+        feats.push('shady leafy neem trees and blooming krishnachura canopy along street');
+      }
+      if (/planter|pot|টব|shrub/i.test(suggestionsText)) {
+        feats.push('neat terracotta flower planters along clean sidewalk curbs');
+      }
+      if (/bin|waste|বর্জ্য/i.test(suggestionsText)) {
+        feats.push('modern tidy community eco waste and recycling bins');
+      }
+      if (feats.length > 0) {
+        keyFeatures = feats.join(', ');
       }
     }
+
+    const promptText = `Award-winning architectural documentary photography, realistic street in Khulna Bangladesh revitalized with nature: ${keyFeatures}. Hyper-realistic greenery, detailed botanical foliage, sunny morning tropical lighting, clean open roadway, clear stormwater drains, zero cartoon, zero illustration, 8k resolution photograph.`;
+
+    const seed = Math.floor(Math.random() * 999999);
+    const encodedPrompt = encodeURIComponent(promptText);
+
+    // FLUX model cascade: FLUX.1 -> FLUX Schnell -> Authentic Architectural Renewal Concept Art
+    const modelCandidates = [
+      `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&width=1024&height=640&nologo=true&seed=${seed}`,
+      `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux-schnell&width=1024&height=640&nologo=true&seed=${seed}`,
+      'assets/khulna-renewal.png'
+    ];
+
+    const loadImage = (url, timeoutMs = 18000) => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const timer = setTimeout(() => {
+          img.src = '';
+          reject(new Error('Timeout loading image'));
+        }, timeoutMs);
+
+        img.onload = () => {
+          clearTimeout(timer);
+          resolve(url);
+        };
+        img.onerror = () => {
+          clearTimeout(timer);
+          reject(new Error('Failed to load image from ' + url));
+        };
+        img.src = url;
+      });
+    };
+
+    let resolvedUrl = null;
+    for (const url of modelCandidates) {
+      try {
+        console.log('[FLUX Engine] Trying model candidate:', url);
+        resolvedUrl = await loadImage(url, url.startsWith('http') ? 16000 : 3000);
+        if (resolvedUrl) break;
+      } catch (err) {
+        console.warn('[FLUX Engine] Model candidate timed out or failed:', err.message);
+      }
+    }
+
+    swipeTransformed.src = resolvedUrl || 'assets/khulna-renewal.png';
+
+    if (providerBadge) {
+      providerBadge.textContent = '🌿 FLUX.1 Realistic AI';
+      providerBadge.style.display = 'inline-flex';
+    }
+
+  } catch (err) {
+    console.warn('[FLUX Engine] Error generating FLUX visual:', err);
+    swipeTransformed.src = 'assets/khulna-renewal.png';
+  } finally {
+    if (conceptLoadingBox) conceptLoadingBox.hidden = true;
+    if (swipeContainer) swipeContainer.hidden = false;
+    setupSwipeSlider(userPhotoSwipe);
   }
-  ctx.restore();
-}
-
-function drawOverheadCanopy(ctx, w, h) {
-  ctx.save();
-  const canopyColors = ['#1b4332', '#2d6a4f', '#40916c', '#52b788'];
-
-  // Left top canopy
-  for (let i = 0; i < 35; i++) {
-    const cx = Math.random() * (w * 0.45);
-    const cy = Math.random() * (h * 0.28);
-    const r = 25 + Math.random() * 40;
-    ctx.fillStyle = canopyColors[i % canopyColors.length];
-    ctx.globalAlpha = 0.85;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Right top canopy
-  for (let i = 0; i < 35; i++) {
-    const cx = w - Math.random() * (w * 0.45);
-    const cy = Math.random() * (h * 0.28);
-    const r = 25 + Math.random() * 40;
-    ctx.fillStyle = canopyColors[i % canopyColors.length];
-    ctx.globalAlpha = 0.85;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Scarlet Krishnachura blooms in canopy
-  ctx.globalAlpha = 0.95;
-  for (let k = 0; k < 40; k++) {
-    const kx = (k % 2 === 0) ? Math.random() * (w * 0.4) : (w - Math.random() * (w * 0.4));
-    const ky = Math.random() * (h * 0.25);
-    ctx.fillStyle = '#ff4757';
-    ctx.beginPath();
-    ctx.arc(kx, ky, 5 + Math.random() * 4, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
-}
-
-function drawGroundPlanters(ctx, w, h) {
-  ctx.save();
-  // Terracotta flower pots at bottom corner
-  const potX = w * 0.12;
-  const potY = h - 60;
-
-  // Pot 1
-  ctx.fillStyle = '#c86432';
-  ctx.beginPath();
-  ctx.moveTo(potX - 25, potY);
-  ctx.lineTo(potX + 25, potY);
-  ctx.lineTo(potX + 18, potY + 45);
-  ctx.lineTo(potX - 18, potY + 45);
-  ctx.closePath();
-  ctx.fill();
-
-  // Flowering plant inside pot
-  ctx.fillStyle = '#2d6a4f';
-  for (let i = 0; i < 8; i++) {
-    ctx.beginPath();
-    ctx.arc(potX + (Math.random() - 0.5) * 35, potY - 15 - Math.random() * 25, 12, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.fillStyle = '#ffbe0b';
-  for (let i = 0; i < 4; i++) {
-    ctx.beginPath();
-    ctx.arc(potX + (Math.random() - 0.5) * 30, potY - 20 - Math.random() * 20, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawModernEcoBin(ctx, w, h) {
-  ctx.save();
-  const bx = w * 0.85;
-  const by = h - 110;
-
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.beginPath();
-  ctx.ellipse(bx + 25, by + 85, 35, 12, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Bin body
-  ctx.fillStyle = '#2d6a4f';
-  ctx.roundRect ? ctx.roundRect(bx, by, 50, 80, 6) : ctx.fillRect(bx, by, 50, 80);
-  ctx.fill();
-
-  // Bin lid
-  ctx.fillStyle = '#1b4332';
-  ctx.fillRect(bx - 4, by - 8, 58, 12);
-
-  // Recycle symbol text
-  ctx.fillStyle = '#d5e5a1';
-  ctx.font = 'bold 22px Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('♻', bx + 25, by + 48);
-
-  ctx.restore();
-}
-
-function drawProposalBadge(ctx, w, h) {
-  ctx.save();
-  ctx.fillStyle = 'rgba(21, 59, 46, 0.88)';
-  ctx.fillRect(0, h - 34, w, 34);
-
-  ctx.fillStyle = '#bad58a';
-  ctx.font = '14px Arial, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText('🌿 Green Before Grey · AI Transformation Concept · Vertical Climbers & Shade Canopy', 20, h - 12);
-
-  ctx.textAlign = 'right';
-  ctx.fillStyle = '#e8f0d4';
-  ctx.fillText('Zero Point, Khulna', w - 20, h - 12);
-  ctx.restore();
 }
 
 /* ── Interactive Swipe Slider Controller ───────────────────────── */

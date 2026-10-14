@@ -107,18 +107,17 @@
 <div id="ai-result-content" hidden>
 
   <!-- Top: Visual Transformation — Before & After -->
-  <div class="ai-concept-section" style="margin-top: 0; padding-top: 0; border-top: none;">
+  <div class="ai-concept-section">
     <div class="concept-header">
-      <div>
-        <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
-          <h2 data-i18n="aiConceptTitle" style="margin: 0; font-size: clamp(24px, 2.8vw, 36px);">🎨 Visual Transformation — Before &amp; After</h2>
-          <span id="ai-provider-badge" style="display: none; font-size: 0.75rem; color: #153b2e; background: #bad58a; padding: 2px 10px; border-radius: 999px; font-weight: 700;"></span>
-        </div>
-        <p class="small" data-i18n="aiConceptNote" style="margin-top: 0.35rem;">Drag the center slider to inspect the botanical transformation on your exact uploaded photo.</p>
+      <div class="concept-title-row">
+        <h2 data-i18n="aiConceptTitle" class="concept-title">🎨 Visual Transformation — Before &amp; After</h2>
+        <span id="ai-provider-badge" class="ai-model-pill" style="display: none;">🌿 FLUX.1 Schnell</span>
       </div>
+      <p class="small" data-i18n="aiConceptNote" style="margin-top: 0.4rem; margin-bottom: 0;">Drag the center slider to compare existing condition against the photorealistic FLUX greenery transformation.</p>
     </div>
 
-    <div id="concept-loading" class="ai-loading-botanical" hidden style="padding: 2.5rem 1rem; margin: 1rem 0;">
+    <!-- Sprout loader during generation -->
+    <div id="concept-loading" class="ai-loading-botanical" hidden style="padding: 2.5rem 1rem; margin: 1.25rem 0;">
       <div class="botanical-sprout-art" aria-hidden="true" style="margin-bottom: 0.75rem;">
         <svg viewBox="0 0 100 100" class="natural-sprout-svg" width="64" height="64">
           <path class="sprout-soil-line" d="M18 84 Q50 76 82 84" stroke="#718664" stroke-width="3" stroke-linecap="round" fill="none" />
@@ -128,7 +127,7 @@
           <circle class="sprout-bud-bloom" cx="50" cy="24" r="4.5" fill="#d0e3a3" stroke="#244f39" stroke-width="1.5" />
         </svg>
       </div>
-      <p data-i18n="aiGeneratingConcept" style="font-family: var(--serif); color: var(--ink); margin: 0; font-size: 16px;">Rendering green transformation visual…</p>
+      <p data-i18n="aiGeneratingConcept" style="font-family: var(--serif); color: var(--ink); margin: 0; font-size: 16px;">Generating realistic botanical transformation with FLUX.1…</p>
     </div>
 
     <!-- Interactive Before & After Swipe Slider -->
@@ -145,20 +144,21 @@
     </div>
   </div>
 
-  <!-- Bottom: Original Photo & Structured Action Plan Bento Cards -->
-  <div class="ai-result-grid" style="margin-top: 2rem; border-top: 1px solid rgba(213, 229, 161, 0.15); padding-top: 1.5rem;">
-    <div class="ai-result-photo">
-      <h3 data-i18n="aiYourPhoto" style="margin-top: 0;">📸 Your Uploaded Photo</h3>
-      <img id="result-photo" alt="Uploaded neighborhood photo">
+  <!-- Bottom: Full-Width Bento Grid of Actionable Interventions -->
+  <div class="ai-interventions-section">
+    <div class="interventions-header">
+      <div>
+        <h2 data-i18n="aiSuggestions" class="interventions-title">🌿 Actionable Interventions</h2>
+        <p class="small" style="margin-top: 0.35rem; margin-bottom: 0;">Site-specific urban greening roadmap and species tailored for your street</p>
+      </div>
+      <!-- Hidden image reference so existing JS hooks remain valid without breaking layout -->
+      <img id="result-photo" alt="Uploaded neighborhood photo" hidden>
     </div>
-    <div class="ai-result-suggestions">
-      <h3 data-i18n="aiSuggestions" style="margin-top: 0;">🌿 Actionable Interventions</h3>
-      <div id="suggestions-text" class="ai-suggestions-text"></div>
-    </div>
+    <div id="suggestions-text" class="ai-bento-grid"></div>
   </div>
 
   <!-- Action buttons -->
-  <div class="request-actions">
+  <div class="request-actions" style="margin-top: 2.25rem;">
     <button type="button" id="btn-new-photo" class="button light"><span data-i18n="aiNewPhoto">← Analyze another photo</span></button>
     <button type="button" id="btn-copy-plan" class="button light"><span>📋 Copy Action Plan</span></button>
     <button type="button" id="btn-download-result" class="button primary"><span data-i18n="aiDownload">📥 Download results</span></button>
