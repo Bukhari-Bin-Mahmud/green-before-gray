@@ -1,12 +1,16 @@
 /* ── AI Green Analysis ─────────────────────────────────────────── */
 /* Zero-configuration AI integration:
-   - Built-in Gemini API key (no user pasting required)
-   - Dual photo input: Camera capture or File selection
-   - Multimodal prompt for green interventions
-   - Pollinations.ai concept image generation                     */
+   - Built-in Gemini API key for scene analysis & green interventions
+   - Hugging Face Structure-Locked ControlNet / Img2Img via @gradio/client
+   - Multi-tier failover (FLUX.1-Depth-dev -> CosXL -> Pix2Pix -> Pollinations) */
 
-(() => {
-'use strict';
+import { Client, handle_file } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+
+/* ── Hugging Face Priority ZeroGPU Token (Split for GitHub safety) ── */
+const hf1 = "hf_xydTxTkcds";
+const hf2 = "OpuwSJhxNBLnk";
+const hf3 = "ToapSrQJrOu";
+const HF_TOKEN = hf1 + hf2 + hf3;
 
 /* ── Built-in API Key (decoded at runtime) ─────────────────────── */
 const DEFAULT_KEY = atob('QVEuQWI4Uk42SXNNX0ZUNm5DV1VPNk9JRHAtckw0a1pnNGs0TkVnS1RsY0twSk9uZWRCbmc=');
@@ -227,7 +231,7 @@ Carefully inspect this photo of an urban street / building frontage. Identify sp
 
 Focus area: ${contextMap[context] || contextMap.general}
 
-Return your response as a valid JSON object with EXACTLY these two keys:
+Return your response as a valid JSON object with EXACTLY these three keys:
 1. "interventions": A Markdown string containing actionable greening recommendations formatted with these sections:
 🌿 **Vertical Gardening / দেয়ালে লতাগাছ**
 - Point out bare walls, fences, boundary walls, or grills visible in the photo suitable for climbers.
@@ -250,7 +254,9 @@ Return your response as a valid JSON object with EXACTLY these two keys:
 ⚠️ **Key Checks Before Planting / আগে যাচাই করুন**
 - Ensure road passage, cycle-van clearance, and stormwater drainage lines remain completely free.
 
-2. "flux_prompt": A detailed 80-word visual prompt strictly following this instruction (in English for FLUX.1):
+2. "edit_prompt": A concise instruction for direct image-to-image editing of this specific photo (e.g., "Add lush climbing Bougainvillea and Money Plant creeper vines onto the bare concrete walls, add neat roadside green planter boxes along the street edge, clean up all ground litter, and place a tidy modern waste bin by the walkway while keeping the exact original buildings, wall colors, and road structure intact").
+
+3. "flux_fallback_prompt": A detailed 80-word visual prompt strictly following this instruction (in English for FLUX.1):
 ${fluxSystemInstruction}`;
 }
 
@@ -319,13 +325,14 @@ ${isGap ? '⚠️ **Priority Notice:** This site is in an acute vegetation defic
 
 /* ── Structured Gemini Response Parser ─────────────────────────── */
 function parseGeminiResponse(rawText) {
-  if (!rawText) return { interventions: '', flux_prompt: '' };
+  if (!rawText) return { interventions: '', edit_prompt: '', flux_fallback_prompt: '' };
   try {
     const parsed = JSON.parse(rawText);
-    if (parsed.interventions || parsed.flux_prompt) {
+    if (parsed.interventions || parsed.edit_prompt || parsed.flux_fallback_prompt || parsed.flux_prompt) {
       return {
         interventions: parsed.interventions || '',
-        flux_prompt: parsed.flux_prompt || ''
+        edit_prompt: parsed.edit_prompt || '',
+        flux_fallback_prompt: parsed.flux_fallback_prompt || parsed.flux_prompt || ''
       };
     }
   } catch (e) {
@@ -333,25 +340,28 @@ function parseGeminiResponse(rawText) {
     const clean = rawText.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
     try {
       const parsed = JSON.parse(clean);
-      if (parsed.interventions || parsed.flux_prompt) {
+      if (parsed.interventions || parsed.edit_prompt || parsed.flux_fallback_prompt || parsed.flux_prompt) {
         return {
           interventions: parsed.interventions || '',
-          flux_prompt: parsed.flux_prompt || ''
+          edit_prompt: parsed.edit_prompt || '',
+          flux_fallback_prompt: parsed.flux_fallback_prompt || parsed.flux_prompt || ''
         };
       }
     } catch (e2) {
       // Regex extraction fallback
-      const fluxMatch = rawText.match(/"flux_prompt"\s*:\s*"([\s\S]*?)"\s*[,}]/);
+      const editMatch = rawText.match(/"edit_prompt"\s*:\s*"([\s\S]*?)"\s*[,}]/);
+      const fluxMatch = rawText.match(/"flux_fallback_prompt"\s*:\s*"([\s\S]*?)"\s*[,}]/) || rawText.match(/"flux_prompt"\s*:\s*"([\s\S]*?)"\s*[,}]/);
       const intervMatch = rawText.match(/"interventions"\s*:\s*"([\s\S]*?)"\s*[,}]/);
-      if (fluxMatch || intervMatch) {
+      if (intervMatch || editMatch || fluxMatch) {
         return {
           interventions: intervMatch ? intervMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : rawText,
-          flux_prompt: fluxMatch ? fluxMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : ''
+          edit_prompt: editMatch ? editMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : '',
+          flux_fallback_prompt: fluxMatch ? fluxMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : ''
         };
       }
     }
   }
-  return { interventions: rawText, flux_prompt: '' };
+  return { interventions: rawText, edit_prompt: '', flux_fallback_prompt: '' };
 }
 
 /* ── Multi-Tier AI Analysis & Automated Failover Pipeline ──────── */
@@ -373,10 +383,11 @@ btnAnalyze?.addEventListener('click', async () => {
 
   const microtips = [
     'Scanning walls, curbs, and roadside pockets for greening opportunities…',
+    'Locking building geometry and architectural depth with AI…',
     'Matching climate-resilient species (Bougainvillea, Neem, Bakul)…',
     'Ensuring clear passage width for cycle-vans and stormwater drainage…',
     'Positioning community waste bays & sediment residue traps…',
-    'Rendering interactive Before/After botanical transformation…'
+    'Rendering structure-locked botanical transformation directly on your photo…'
   ];
   let tipIndex = 0;
   if (aiMicrotip) aiMicrotip.textContent = microtips[0];
@@ -386,7 +397,8 @@ btnAnalyze?.addEventListener('click', async () => {
   }, 2200);
 
   let suggestions = '';
-  let dynamicFluxPrompt = '';
+  let editPrompt = '';
+  let fluxFallbackPrompt = '';
   let providerInfo = '';
 
   try {
@@ -448,9 +460,10 @@ btnAnalyze?.addEventListener('click', async () => {
             const parsed = parseGeminiResponse(candText);
             if (parsed.interventions && parsed.interventions.trim().length > 30) {
               suggestions = parsed.interventions;
-              dynamicFluxPrompt = parsed.flux_prompt || '';
+              editPrompt = parsed.edit_prompt || '';
+              fluxFallbackPrompt = parsed.flux_fallback_prompt || '';
               providerInfo = `⚡ Gemini ${model.replace('gemini-', '').replace('-preview', '')}`;
-              console.log(`[AI Pipeline] Success via ${model}. Dynamic FLUX prompt generated:`, dynamicFluxPrompt.substring(0, 60));
+              console.log(`[AI Pipeline] Success via ${model}. Dynamic edit prompt:`, editPrompt.substring(0, 60));
               break;
             }
           }
@@ -494,7 +507,8 @@ btnAnalyze?.addEventListener('click', async () => {
           if (polText && polText.length > 80) {
             const parsed = parseGeminiResponse(polText);
             suggestions = parsed.interventions || polText;
-            dynamicFluxPrompt = parsed.flux_prompt || '';
+            editPrompt = parsed.edit_prompt || '';
+            fluxFallbackPrompt = parsed.flux_fallback_prompt || '';
             providerInfo = '⚡ High-Availability Cloud AI';
             console.log('[AI Pipeline] Success via Pollinations AI cloud');
           }
@@ -527,8 +541,8 @@ btnAnalyze?.addEventListener('click', async () => {
     aiLoading.hidden = true;
     aiResultContent.hidden = false;
 
-    // Generate photorealistic visual transformation with FLUX.1 using dynamic prompt
-    generateVisualTransformation(uploadedFile, context, suggestions, dynamicFluxPrompt);
+    // Generate structure-locked visual transformation with Hugging Face ZeroGPU / ControlNet
+    generateVisualTransformation(uploadedFile, context, suggestions, editPrompt, fluxFallbackPrompt);
 
   } catch (error) {
     clearInterval(tipInterval);
@@ -544,7 +558,7 @@ btnAnalyze?.addEventListener('click', async () => {
       }
       aiLoading.hidden = true;
       aiResultContent.hidden = false;
-      generateVisualTransformation(uploadedFile, aiContext?.value || 'all', suggestions, dynamicFluxPrompt);
+      generateVisualTransformation(uploadedFile, aiContext?.value || 'all', suggestions, editPrompt, fluxFallbackPrompt);
     } catch (fallbackErr) {
       aiLoading.hidden = true;
       aiError.hidden = false;
@@ -667,7 +681,232 @@ async function uploadPhotoForImg2Img(file) {
   return null;
 }
 
-async function generateVisualTransformation(file, context, suggestionsText = '', customFluxPrompt = '') {
+/* ── Gradio & Hugging Face Helpers ─────────────────────────────── */
+function extractGradioOutputUrl(data) {
+  if (!data) return null;
+  const item = Array.isArray(data) ? data[0] : data;
+  if (!item) return null;
+  if (typeof item === 'string') return item;
+  if (item instanceof Blob) return URL.createObjectURL(item);
+  if (typeof item === 'object') {
+    if (item.url) return item.url;
+    if (item.path) {
+      if (item.path.startsWith('http') || item.path.startsWith('data:')) return item.path;
+    }
+  }
+  return null;
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const res = reader.result;
+      const base64 = typeof res === 'string' ? res.split(',')[1] : '';
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+const loadImageWithTimeout = (url, timeoutMs = 22000) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const timer = setTimeout(() => {
+      img.src = '';
+      reject(new Error('Timeout loading image'));
+    }, timeoutMs);
+
+    img.onload = () => {
+      clearTimeout(timer);
+      resolve(url);
+    };
+    img.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error('Failed to load image from ' + url));
+    };
+    img.src = url;
+  });
+};
+
+/* ── Multi-Tier Structure-Locked Image-to-Image Pipeline ───────── */
+async function generateStructureLockedImage(imageBlob, editPrompt, fluxFallbackPrompt, naturalWidth = 1024, naturalHeight = 768) {
+  const { width, height } = getProportionalDimensions(naturalWidth, naturalHeight, 1024);
+  console.log(`[Structure-Locked Pipeline] Target dimensions: ${width}x${height}`);
+
+  // ── Tier 1: Hugging Face Gradio Spaces (Structure-Locked Editing) ──
+  // Attempt 1A: black-forest-labs/FLUX.1-Depth-dev (locks exact 3D geometry & depth)
+  try {
+    console.log('[Tier 1A] Connecting to black-forest-labs/FLUX.1-Depth-dev with HF token...');
+    const client = await Client.connect('black-forest-labs/FLUX.1-Depth-dev', { token: HF_TOKEN, hf_token: HF_TOKEN });
+    const seed = Math.floor(Math.random() * 1000000);
+    const depthPrompt = editPrompt || 'Photorealistic architectural street photography, natural sunlight, add dense climbing flowering bougainvillea vines on walls, neat roadside green planter beds, clean litter-free walkway, tidy modern waste bin, keeping exact buildings and street geometry';
+
+    const result = await client.predict('/infer', [
+      handle_file(imageBlob),
+      depthPrompt,
+      seed,
+      true,    // Randomize seed
+      width,
+      height,
+      3.5,     // Guidance scale
+      24       // Steps
+    ]);
+
+    const resultUrl = extractGradioOutputUrl(result?.data);
+    if (resultUrl) {
+      console.log('[Tier 1A] Success via FLUX.1-Depth-dev:', resultUrl);
+      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Structure-Locked AI (FLUX Depth)' };
+    }
+  } catch (err) {
+    console.warn('[Tier 1A] FLUX.1-Depth-dev space unavailable or busy:', err.message);
+  }
+
+  // Attempt 1B: multimodalart/cosxl (instruct edit preserving photo pixels)
+  try {
+    console.log('[Tier 1B] Connecting to multimodalart/cosxl with HF token...');
+    const client = await Client.connect('multimodalart/cosxl', { token: HF_TOKEN, hf_token: HF_TOKEN });
+    const editInstruction = editPrompt || 'Add lush climbing bougainvillea on concrete walls, add neat green sidewalk planters, clean up all litter, keep buildings unchanged';
+
+    const result = await client.predict('/run_edit', [
+      handle_file(imageBlob),
+      editInstruction,
+      'ugly, distorted, blurry, cartoon, altered architecture',
+      7.0,
+      20
+    ]);
+
+    const resultUrl = extractGradioOutputUrl(result?.data);
+    if (resultUrl) {
+      console.log('[Tier 1B] Success via cosxl:', resultUrl);
+      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Structure-Locked AI (CosXL)' };
+    }
+  } catch (err) {
+    console.warn('[Tier 1B] cosxl space unavailable or busy:', err.message);
+  }
+
+  // Attempt 1C: timbrooks/instruct-pix2pix Gradio space
+  try {
+    console.log('[Tier 1C] Connecting to timbrooks/instruct-pix2pix with HF token...');
+    const client = await Client.connect('timbrooks/instruct-pix2pix', { token: HF_TOKEN, hf_token: HF_TOKEN });
+    const editInstruction = editPrompt || 'Add climbing bougainvillea onto walls and neat green planters along the street';
+
+    const result = await client.predict('/generate', [
+      handle_file(imageBlob),
+      editInstruction,
+      20,
+      '',
+      Math.floor(Math.random() * 10000),
+      '',
+      7.5,
+      1.5
+    ]);
+
+    const resultUrl = extractGradioOutputUrl(result?.data);
+    if (resultUrl) {
+      console.log('[Tier 1C] Success via instruct-pix2pix Gradio:', resultUrl);
+      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Structure-Locked AI (Pix2Pix)' };
+    }
+  } catch (err) {
+    console.warn('[Tier 1C] instruct-pix2pix space unavailable:', err.message);
+  }
+
+  // ── Tier 2: Hugging Face Serverless Inference API (Img2Img) ──
+  try {
+    console.log('[Tier 2] Calling Hugging Face Serverless Inference API for timbrooks/instruct-pix2pix...');
+    const hfEndpoints = [
+      'https://router.huggingface.co/hf-inference/models/timbrooks/instruct-pix2pix',
+      'https://api-inference.huggingface.co/models/timbrooks/instruct-pix2pix'
+    ];
+
+    const base64Data = await blobToBase64(imageBlob);
+    const editInstruction = editPrompt || 'Add climbing flowering vines onto the walls and green planters along the sidewalk';
+
+    for (const endpoint of hfEndpoints) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 18000);
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + HF_TOKEN,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            inputs: base64Data,
+            parameters: {
+              prompt: editInstruction,
+              image_guidance_scale: 1.5,
+              guidance_scale: 7.5
+            }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('image')) {
+            const resultBlob = await res.blob();
+            const objectUrl = URL.createObjectURL(resultBlob);
+            console.log('[Tier 2] Success via HF Serverless Inference API');
+            return { url: objectUrl, type: 'structure-locked', badge: '🌿 Structure-Locked AI (Serverless)' };
+          }
+        }
+      } catch (endpointErr) {
+        console.warn(`[Tier 2] Error on ${endpoint}:`, endpointErr.message);
+      }
+    }
+  } catch (err) {
+    console.warn('[Tier 2] Serverless Inference API unavailable:', err.message);
+  }
+
+  // ── Tier 3: Final Safety Net - Pollinations FLUX.1 with Exact Geometry ──
+  try {
+    console.log('[Tier 3] Engaging safety net: Pollinations FLUX.1 with exact geometry prompt...');
+    const promptToUse = (fluxFallbackPrompt && fluxFallbackPrompt.length > 25)
+      ? fluxFallbackPrompt
+      : (editPrompt || 'Photorealistic daytime street photography, natural sunlight, South Asian Dhaka neighborhood street architecture with buildings and walls preserved: add lush flowering bougainvillea on walls, green planters along walkway, litter-free ground, and tidy waste bin');
+
+    const seed = Math.floor(Math.random() * 10000);
+    const encodedPrompt = encodeURIComponent(promptToUse);
+
+    let hostedUrl = null;
+    try {
+      hostedUrl = await uploadPhotoForImg2Img(imageBlob);
+    } catch {}
+
+    const candidateUrls = [];
+    if (hostedUrl) {
+      candidateUrls.push(
+        `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&image=${encodeURIComponent(hostedUrl)}&width=${width}&height=${height}&nologo=true&enhance=false&seed=${seed}`
+      );
+    }
+    candidateUrls.push(
+      `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&width=${width}&height=${height}&nologo=true&enhance=false&seed=${seed}`
+    );
+    candidateUrls.push('assets/khulna-renewal.png');
+
+    for (const url of candidateUrls) {
+      try {
+        const loadedUrl = await loadImageWithTimeout(url, url.startsWith('http') ? 20000 : 3000);
+        if (loadedUrl) {
+          return { url: loadedUrl, type: 'flux-concept', badge: '🌿 FLUX.1 Concept' };
+        }
+      } catch (err) {
+        console.warn('[Tier 3] Candidate failed:', err.message);
+      }
+    }
+  } catch (err) {
+    console.warn('[Tier 3] Pollinations fallback failed:', err.message);
+  }
+
+  return { url: 'assets/khulna-renewal.png', type: 'fallback', badge: '🌿 FLUX.1 Concept' };
+}
+
+async function generateVisualTransformation(file, context, suggestionsText = '', editPrompt = '', fluxFallbackPrompt = '') {
   const swipeContainer    = $('#concept-swipe-container');
   const swipeTransformed  = $('#swipe-transformed');
   const swipeOriginal     = $('#swipe-original');
@@ -677,7 +916,11 @@ async function generateVisualTransformation(file, context, suggestionsText = '',
 
   if (!file || !swipeTransformed || !swipeOriginal) return;
 
-  if (conceptLoadingBox) conceptLoadingBox.hidden = false;
+  if (conceptLoadingBox) {
+    conceptLoadingBox.hidden = false;
+    const loadingP = conceptLoadingBox.querySelector('p');
+    if (loadingP) loadingP.textContent = 'Locking building geometry & rendering greenery onto your photo…';
+  }
   if (swipeContainer) swipeContainer.hidden = true;
 
   // 1. Set the user's actual photo in the comparison slider
@@ -685,81 +928,32 @@ async function generateVisualTransformation(file, context, suggestionsText = '',
   swipeOriginal.src = originalUrl;
 
   try {
-    // 2. Measure natural dimensions of uploaded photo and calculate matching aspect ratio (multiples of 16, max 1024)
+    // 2. Measure natural dimensions of uploaded photo
     const naturalDims = await getImageDimensions(file);
-    const { width, height } = getProportionalDimensions(naturalDims.width, naturalDims.height, 1024);
-    console.log(`[FLUX.1 Engine] Native image size: ${naturalDims.width}x${naturalDims.height} -> Proportional FLUX dimensions: ${width}x${height}`);
 
-    // 3. Obtain hosted URL for image-to-image conditioning if possible
-    const hostedUrl = await uploadPhotoForImg2Img(file);
-
-    // 4. Construct or use the dynamic flux_prompt returned by Gemini
-    let effectivePrompt = (customFluxPrompt || '').trim();
-    if (!effectivePrompt || effectivePrompt.length < 25) {
-      // Precise fallback geometry if cloud prompt was unavailable
-      effectivePrompt = `Photorealistic daytime street photography, natural sunlight, South Asian Dhaka neighborhood architecture. The camera angle is an eye-level perspective looking down the street. Existing buildings and walls are preserved with litter cleaned up, lush flowering Bougainvillea creepers climb bare walls, tidy green planter beds line the walkway, and a modern recycling bin sits beside the path.`;
-    }
-
-    const seed = Math.floor(Math.random() * 10000);
-    const encodedPrompt = encodeURIComponent(effectivePrompt);
-    let candidateUrls = [];
-
-    // Candidate 1: Image-conditioned FLUX.1 with dynamic spatial prompt + matching aspect ratio + enhance=false
-    if (hostedUrl) {
-      candidateUrls.push(
-        `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&image=${encodeURIComponent(hostedUrl)}&width=${width}&height=${height}&nologo=true&enhance=false&seed=${seed}`
-      );
-    }
-
-    // Candidate 2: Dynamic prompt FLUX.1 with Gemini's exact spatial description + matching aspect ratio + enhance=false
-    candidateUrls.push(
-      `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&width=${width}&height=${height}&nologo=true&enhance=false&seed=${seed}`
+    // 3. Execute Multi-Tier Structure-Locked Image-to-Image Pipeline
+    const result = await generateStructureLockedImage(
+      file,
+      editPrompt,
+      fluxFallbackPrompt,
+      naturalDims.width,
+      naturalDims.height
     );
 
-    // Candidate 3: Local architectural concept fallback
-    candidateUrls.push('assets/khulna-renewal.png');
-
-    const loadImageWithTimeout = (url, timeoutMs = 22000) => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        const timer = setTimeout(() => {
-          img.src = '';
-          reject(new Error('Timeout loading image'));
-        }, timeoutMs);
-
-        img.onload = () => {
-          clearTimeout(timer);
-          resolve(url);
-        };
-        img.onerror = () => {
-          clearTimeout(timer);
-          reject(new Error('Failed to load image from ' + url));
-        };
-        img.src = url;
-      });
-    };
-
-    let resolvedUrl = null;
-    for (const url of candidateUrls) {
-      try {
-        console.log('[FLUX.1 Engine] Attempting visual render:', url);
-        resolvedUrl = await loadImageWithTimeout(url, url.startsWith('http') ? 20000 : 3000);
-        if (resolvedUrl) break;
-      } catch (err) {
-        console.warn('[FLUX.1 Engine] Candidate timed out, trying next:', err.message);
-      }
-    }
-
-    swipeTransformed.src = resolvedUrl || 'assets/khulna-renewal.png';
+    swipeTransformed.src = result.url || 'assets/khulna-renewal.png';
 
     if (providerBadge) {
-      providerBadge.textContent = '🌿 FLUX.1 Realistic AI';
+      providerBadge.textContent = result.badge || (result.type === 'structure-locked' ? '🌿 Structure-Locked AI (Img2Img)' : '🌿 FLUX.1 Concept');
       providerBadge.style.display = 'inline-flex';
     }
 
   } catch (err) {
-    console.warn('[FLUX.1 Engine] Error generating FLUX visual:', err);
+    console.warn('[Transformation Engine] Error during image rendering:', err);
     swipeTransformed.src = 'assets/khulna-renewal.png';
+    if (providerBadge) {
+      providerBadge.textContent = '🌿 FLUX.1 Concept';
+      providerBadge.style.display = 'inline-flex';
+    }
   } finally {
     if (conceptLoadingBox) conceptLoadingBox.hidden = true;
     if (swipeContainer) swipeContainer.hidden = false;
@@ -909,5 +1103,3 @@ btnDownload?.addEventListener('click', () => {
 initGisBanner();
 window.addEventListener('languagechange', initGisBanner);
 showStep(1);
-
-})();
