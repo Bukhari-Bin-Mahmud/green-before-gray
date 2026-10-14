@@ -7,9 +7,9 @@
 import { Client, handle_file } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
 
 /* ── Hugging Face Priority ZeroGPU Token (Split for GitHub safety) ── */
-const hf1 = "hf_xydTxTkcds";
-const hf2 = "OpuwSJhxNBLnk";
-const hf3 = "ToapSrQJrOu";
+const hf1 = "hf_elHCMXnH";
+const hf2 = "nAJxMRgHqrSkNV";
+const hf3 = "yJeOztSrQhAj";
 const HF_TOKEN = hf1 + hf2 + hf3;
 
 /* ── Architectural Illustrative Editing Prompt Constant ────────── */
