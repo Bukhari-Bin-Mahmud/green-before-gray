@@ -43,6 +43,7 @@ const toggleKeyBtn     = $('#toggle-key-visibility');
 
 const aiLoading        = $('#ai-loading');
 const aiLoadingStatus  = $('#ai-loading-status');
+const aiMicrotip       = $('#ai-loading-microtip');
 const aiProviderBadge  = $('#ai-provider-badge');
 const aiResultContent  = $('#ai-result-content');
 const aiError          = $('#ai-error');
@@ -52,6 +53,9 @@ const suggestionsText  = $('#suggestions-text');
 const conceptLoading   = $('#concept-loading');
 const conceptImage     = $('#concept-image');
 const btnNewPhoto      = $('#btn-new-photo');
+const btnCopyPlan      = $('#btn-copy-plan');
+const btnDownload      = $('#btn-download-result');
+const aiToast          = $('#ai-toast');
 /* ── GIS Spatial Context from URL ──────────────────────────────── */
 const urlParams = new URLSearchParams(window.location.search);
 const gisData = {
@@ -94,11 +98,37 @@ function showStep(n) {
   stepUpload.hidden = n !== 1;
   stepResult.hidden = n !== 2;
 
-  $('#progress-one')?.classList.toggle('active', n === 1);
-  $('#progress-two')?.classList.toggle('active', n === 2);
+  const p1 = $('#progress-one');
+  const p2 = $('#progress-two');
+  if (p1 && p2) {
+    p1.classList.toggle('active', n === 1);
+    p1.classList.toggle('completed', n === 2);
+    p2.classList.toggle('active', n === 2);
+
+    const num1 = p1.querySelector('.step-num');
+    if (num1) num1.textContent = n === 2 ? '✓' : '1';
+    const num2 = p2.querySelector('.step-num');
+    if (num2) num2.textContent = '2';
+  }
 
   const target = n === 1 ? stepUpload : stepResult;
   target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Allow clicking completed step 1 to return and retake photo
+$('#progress-one')?.addEventListener('click', () => {
+  if (currentStep === 2) showStep(1);
+});
+
+// Toast notification helper
+function showToast(msg) {
+  if (!aiToast) return;
+  aiToast.textContent = msg;
+  aiToast.hidden = false;
+  clearTimeout(aiToast._timer);
+  aiToast._timer = setTimeout(() => {
+    aiToast.hidden = true;
+  }, 3200);
 }
 
 /* ── Active API Key Getter ─────────────────────────────────────── */
@@ -166,6 +196,18 @@ dropZone?.addEventListener('drop', e => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
   if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+// Goal Filter Chips
+const goalChips = document.querySelectorAll('.goal-chip');
+goalChips.forEach(chip => {
+  chip.addEventListener('click', () => {
+    goalChips.forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    if (aiContext) {
+      aiContext.value = chip.dataset.goal || 'all';
+    }
+  });
 });
 
 /* ── Convert File to Base64 ────────────────────────────────────── */
@@ -319,6 +361,20 @@ btnAnalyze?.addEventListener('click', async () => {
     aiLoadingStatus.textContent = tr('aiAnalyzing') || 'Analyzing your photo and generating green plans…';
   }
 
+  const microtips = [
+    'Scanning walls, curbs, and roadside pockets for greening opportunities…',
+    'Matching climate-resilient species (Bougainvillea, Neem, Bakul)…',
+    'Ensuring clear passage width for cycle-vans and stormwater drainage…',
+    'Positioning community waste bays & sediment residue traps…',
+    'Rendering interactive Before/After botanical transformation…'
+  ];
+  let tipIndex = 0;
+  if (aiMicrotip) aiMicrotip.textContent = microtips[0];
+  const tipInterval = setInterval(() => {
+    tipIndex = (tipIndex + 1) % microtips.length;
+    if (aiMicrotip) aiMicrotip.textContent = microtips[tipIndex];
+  }, 2200);
+
   let suggestions = '';
   let providerInfo = '';
 
@@ -448,6 +504,7 @@ btnAnalyze?.addEventListener('click', async () => {
       aiProviderBadge.style.display = 'inline-block';
     }
 
+    clearInterval(tipInterval);
     aiLoading.hidden = true;
     aiResultContent.hidden = false;
 
@@ -455,6 +512,7 @@ btnAnalyze?.addEventListener('click', async () => {
     generateVisualTransformation(uploadedFile, context);
 
   } catch (error) {
+    clearInterval(tipInterval);
     console.error('AI Pipeline Unexpected Error:', error);
     // Even in unexpected failure, NEVER leave the user stranded on an error screen!
     try {
@@ -802,9 +860,9 @@ tabWatercolor?.addEventListener('click', () => {
   if (watercolorContainer) watercolorContainer.hidden = false;
 });
 
-/* ── Simple Markdown to HTML ───────────────────────────────────── */
+/* ── Simple Markdown to HTML with Bento Cards ──────────────────── */
 function markdownToHtml(md) {
-  return md
+  let html = md
     .replace(/^### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^## (.+)$/gm, '<h3>$1</h3>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -816,9 +874,36 @@ function markdownToHtml(md) {
       return `<p>${match}</p>`;
     })
     .replace(/\n{2,}/g, '\n');
+
+  // Split into structured bento cards based on section headings or emojis
+  const parts = html.split(/(?=<h[34]|<p>(?:🌿|🌳|🗑️|🏠|⚠️|📍))/g);
+  if (parts.length > 1) {
+    html = parts.map(part => {
+      const p = part.trim();
+      if (!p) return '';
+      let cls = 'ai-plan-card';
+      if (p.includes('🌿')) cls += ' card-vertical';
+      else if (p.includes('🌳')) cls += ' card-corridor';
+      else if (p.includes('🗑️')) cls += ' card-waste';
+      else if (p.includes('🏠')) cls += ' card-quickwins';
+      else if (p.includes('⚠️')) cls += ' card-warning';
+      return `<div class="${cls}">${p}</div>`;
+    }).join('');
+  }
+
+  return html;
 }
 
 /* ── Button Actions ────────────────────────────────────────────── */
+btnCopyPlan?.addEventListener('click', () => {
+  const sugText = suggestionsText.innerText || suggestionsText.textContent;
+  if (!sugText) return;
+  navigator.clipboard.writeText(sugText).then(() => {
+    showToast('✓ Green action plan copied to clipboard!');
+  }).catch(() => {
+    showToast('✓ Action plan ready to share');
+  });
+});
 btnNewPhoto?.addEventListener('click', () => {
   uploadedFile = null;
   transformedImageDataUrl = '';

@@ -15,8 +15,8 @@
 
 <!-- 2-Step Progress -->
 <div class="request-progress" role="list">
-<span id="progress-one" class="active">01 <span data-i18n="aiStepPhoto">Photo</span></span>
-<span id="progress-two">02 <span data-i18n="aiStepPlans">Green Plans</span></span>
+<span id="progress-one" class="active"><span class="step-num">1</span> <span data-i18n="aiStepPhoto">Photo</span></span>
+<span id="progress-two"><span class="step-num">2</span> <span data-i18n="aiStepPlans">Green Plans</span></span>
 </div>
 
 <!-- Step 1: Capture or Upload Photo -->
@@ -53,6 +53,7 @@
 <div class="ai-upload-placeholder" id="upload-placeholder">
 <span class="ai-upload-icon" aria-hidden="true">🌱</span>
 <p data-i18n="aiDropOrClick">or drag and drop an image here</p>
+<span class="ai-upload-formats">JPG, PNG, WebP · Up to 10 MB</span>
 </div>
 <div id="preview-wrapper" hidden>
 <img id="upload-preview" alt="Selected photo preview">
@@ -61,18 +62,25 @@
 </div>
 <span id="upload-filename" class="photo-file-name"></span>
 
+<!-- Goal Selector with Visual Filter Chips -->
 <label class="field-label" for="ai-context"><span data-i18n="aiContext">What do you want to improve? (optional)</span></label>
-<select id="ai-context">
-<option value="general" data-i18n="aiGoalGeneral">General green suggestions</option>
+<div class="ai-goal-chips" id="goal-chips" role="radiogroup" aria-label="Improvement Focus">
+  <button type="button" class="goal-chip active" data-goal="all">🌿 All Interventions</button>
+  <button type="button" class="goal-chip" data-goal="vertical">🧗 Wall Climbers &amp; Vines</button>
+  <button type="button" class="goal-chip" data-goal="corridor">🌳 Green Tree Corridors</button>
+  <button type="button" class="goal-chip" data-goal="waste">🗑️ Community Waste Bays</button>
+</div>
+<select id="ai-context" class="sr-only">
+<option value="all" selected data-i18n="aiGoalAll">All of the above</option>
 <option value="vertical" data-i18n="aiGoalVertical">Vertical gardening & wall climbers</option>
 <option value="corridor" data-i18n="aiGoalCorridor">Green corridors & tree planting</option>
 <option value="waste" data-i18n="aiGoalWaste">Waste bins & cleanliness</option>
-<option value="all" data-i18n="aiGoalAll">All of the above</option>
+<option value="general" data-i18n="aiGoalGeneral">General green suggestions</option>
 </select>
 
 <p id="upload-error" class="form-error" role="alert" hidden></p>
 
-<div class="request-actions" style="margin-top: 1.5rem;">
+<div class="request-actions" style="margin-top: 1.75rem;">
 <button type="button" id="btn-analyze" class="button primary large"><span data-i18n="aiAnalyze">🌿 Analyze with AI</span> →</button>
 </div>
 
@@ -94,82 +102,93 @@
 <!-- Step 2: Results -->
 <section id="step-result" class="ai-step" hidden>
 <div class="ai-card">
-<h2 data-i18n="aiResultHeading">Green Intervention Suggestions</h2>
 
-<!-- Loading state -->
+<!-- Loading state with botanical animations, high-contrast text, progress bar & microtips -->
 <div id="ai-loading" class="ai-loading" hidden>
-<div class="ai-spinner"></div>
-<p id="ai-loading-status" data-i18n="aiAnalyzing">Analyzing your photo and generating green plans…</p>
+  <div class="ai-loading-botanical">
+    <div class="ai-spinner-outer"></div>
+    <div class="ai-spinner-inner"></div>
+    <div class="ai-spinner-center"></div>
+  </div>
+  <p id="ai-loading-status" data-i18n="aiAnalyzing">Analyzing your photo and generating green plans…</p>
+  <div class="ai-loading-bar" aria-hidden="true">
+    <div class="ai-loading-bar-fill"></div>
+  </div>
+  <p id="ai-loading-microtip" class="ai-loading-microtip">Scanning walls, curbs, and roadside pockets for greening opportunities…</p>
 </div>
 
 <!-- Result contents -->
 <div id="ai-result-content" hidden>
-<div class="ai-result-grid">
-<div class="ai-result-photo">
-<h3 data-i18n="aiYourPhoto">Your Photo</h3>
-<img id="result-photo" alt="Uploaded neighborhood photo">
-</div>
-<div class="ai-result-suggestions">
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
-  <h3 data-i18n="aiSuggestions" style="margin: 0;">AI Suggestions</h3>
-  <span id="ai-provider-badge" style="display: none; font-size: 0.75rem; color: #bad58a; background: rgba(186,213,138,0.12); padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(186,213,138,0.3); font-weight: 500;"></span>
-</div>
-<div id="suggestions-text" class="ai-suggestions-text"></div>
-</div>
-</div>
 
-<!-- Concept visualization: Interactive Before/After Transformation Slider + Khulna Renewal Concept -->
-<div class="ai-concept-section">
-  <div class="concept-header">
-    <div>
-      <h3 data-i18n="aiConceptTitle">🎨 Visual Transformation — Before &amp; After</h3>
-      <p class="small" data-i18n="aiConceptNote">Drag the slider to see how your exact street or building transforms with green interventions.</p>
+  <!-- Top: Visual Transformation — Before & After -->
+  <div class="ai-concept-section" style="margin-top: 0; padding-top: 0; border-top: none;">
+    <div class="concept-header">
+      <div>
+        <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+          <h2 data-i18n="aiConceptTitle" style="margin: 0; font-size: clamp(24px, 2.8vw, 36px);">🎨 Visual Transformation — Before &amp; After</h2>
+          <span id="ai-provider-badge" style="display: none; font-size: 0.75rem; color: #153b2e; background: #bad58a; padding: 2px 10px; border-radius: 999px; font-weight: 700;"></span>
+        </div>
+        <p class="small" data-i18n="aiConceptNote" style="margin-top: 0.35rem;">Drag the center slider to inspect the botanical transformation on your exact uploaded photo.</p>
+      </div>
+      <div class="concept-view-tabs" role="tablist">
+        <button type="button" id="tab-slider" class="tab-btn active">🌱 Interactive Comparison</button>
+        <button type="button" id="tab-watercolor" class="tab-btn">🎨 Khulna Concept Art</button>
+      </div>
     </div>
-    <div class="concept-view-tabs" role="tablist">
-      <button type="button" id="tab-slider" class="tab-btn active">🌱 Your Photo (Transformed)</button>
-      <button type="button" id="tab-watercolor" class="tab-btn">🎨 Khulna Renewal Concept</button>
+
+    <div id="concept-loading" class="ai-loading" hidden>
+      <div class="ai-spinner"></div>
+      <p data-i18n="aiGeneratingConcept">Rendering green transformation visual…</p>
     </div>
-  </div>
 
-  <div id="concept-loading" class="ai-loading" hidden>
-    <div class="ai-spinner"></div>
-    <p data-i18n="aiGeneratingConcept">Rendering green transformation visual…</p>
-  </div>
+    <!-- Interactive Before & After Swipe Slider -->
+    <div id="concept-swipe-container">
+      <div class="swipe" id="user-photo-swipe" data-swipe style="--split: 50%;">
+        <img id="swipe-transformed" class="swipe-base" alt="AI Green Transformation">
+        <img id="swipe-original" class="swipe-before" alt="Original Condition">
+        <span class="swipe-label left">Existing Condition</span>
+        <span class="swipe-label right">Green Transformation 🌿</span>
+        <button type="button" class="swipe-handle" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-label="Drag to compare before and after">
+          <span>↔</span>
+        </button>
+      </div>
+    </div>
 
-  <!-- Interactive Before & After Swipe Slider -->
-  <div id="concept-swipe-container">
-    <div class="swipe" id="user-photo-swipe" data-swipe style="--split: 50%;">
-      <img id="swipe-transformed" class="swipe-base" alt="AI Green Transformation">
-      <img id="swipe-original" class="swipe-before" alt="Original Condition">
-      <span class="swipe-label left">Existing Condition</span>
-      <span class="swipe-label right">Green Transformation 🌿</span>
-      <button type="button" class="swipe-handle" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-label="Drag to compare before and after">
-        <span>↔</span>
-      </button>
+    <!-- Watercolor Renewal Concept Image (Alternate view) -->
+    <div id="concept-watercolor-container" hidden>
+      <img id="watercolor-image" src="assets/khulna-renewal.png" alt="Watercolor Renewal of a Khulna Lane" style="width: 100%; border-radius: 0.75rem; box-shadow: 0 4px 16px rgba(0,0,0,0.35);">
+      <p class="small" style="margin-top: 0.6rem; text-align: center; color: #bad58a;">Illustrated Watercolor Renewal Concept for a Khulna Neighborhood Lane</p>
     </div>
   </div>
 
-  <!-- Watercolor Renewal Concept Image (Alternate view) -->
-  <div id="concept-watercolor-container" hidden>
-    <img id="watercolor-image" src="assets/khulna-renewal.png" alt="Watercolor Renewal of a Khulna Lane" style="width: 100%; border-radius: 0.75rem; box-shadow: 0 2px 12px rgba(0,0,0,0.25);">
-    <p class="small" style="margin-top: 0.5rem; text-align: center; color: #bad58a;">Illustrated Watercolor Renewal Concept for a Khulna Neighborhood Lane</p>
+  <!-- Bottom: Original Photo & Structured Action Plan Bento Cards -->
+  <div class="ai-result-grid" style="margin-top: 2rem; border-top: 1px solid rgba(213, 229, 161, 0.15); padding-top: 1.5rem;">
+    <div class="ai-result-photo">
+      <h3 data-i18n="aiYourPhoto" style="margin-top: 0;">📸 Your Uploaded Photo</h3>
+      <img id="result-photo" alt="Uploaded neighborhood photo">
+    </div>
+    <div class="ai-result-suggestions">
+      <h3 data-i18n="aiSuggestions" style="margin-top: 0;">🌿 Actionable Interventions</h3>
+      <div id="suggestions-text" class="ai-suggestions-text"></div>
+    </div>
   </div>
-</div>
 
-<!-- Action buttons -->
-<div class="request-actions">
-<button type="button" id="btn-new-photo" class="button light"><span data-i18n="aiNewPhoto">← Analyze another photo</span></button>
-<button type="button" id="btn-download-result" class="button primary"><span data-i18n="aiDownload">📥 Download results</span></button>
-</div>
+  <!-- Action buttons -->
+  <div class="request-actions">
+    <button type="button" id="btn-new-photo" class="button light"><span data-i18n="aiNewPhoto">← Analyze another photo</span></button>
+    <button type="button" id="btn-copy-plan" class="button light"><span>📋 Copy Action Plan</span></button>
+    <button type="button" id="btn-download-result" class="button primary"><span data-i18n="aiDownload">📥 Download results</span></button>
+  </div>
 </div>
 
 <!-- Error state -->
 <div id="ai-error" hidden>
-<p class="form-error" id="ai-error-text"></p>
-<button type="button" id="btn-retry" class="button primary"><span data-i18n="aiRetry">Try again</span></button>
+  <p class="form-error" id="ai-error-text"></p>
+  <button type="button" id="btn-retry" class="button primary"><span data-i18n="aiRetry">Try again</span></button>
 </div>
 </div>
 </section>
+<div id="ai-toast" class="ai-toast" hidden>✓ Copied action plan to clipboard!</div>
 
 </main>
 <footer class="footer"><p class="closing"><span data-i18n-html="closing">One street.<br><em>everyone cares.</em></span></p><div class="footer-bottom"><span>green before grey</span><span data-i18n="footerLocation">Zero Point, Khulna</span></div></footer>
