@@ -504,7 +504,11 @@ btnAnalyze?.addEventListener('click', async () => {
   }
 });
 
-/* ── Photorealistic Visual Transformation Engine (FLUX.1) ────────── */
+/* ── Photorealistic Botanical Greenery Overlay Engine ─────────── */
+/* Renders precise, realistic botanical interventions directly onto
+   the user's exact uploaded photograph. Preserves buildings, road,
+   and sky with natural shadows, shaded foliage, and bougainvillea. */
+
 async function generateVisualTransformation(file, context, suggestionsText = '') {
   const swipeContainer    = $('#concept-swipe-container');
   const swipeTransformed  = $('#swipe-transformed');
@@ -518,91 +522,536 @@ async function generateVisualTransformation(file, context, suggestionsText = '')
   if (conceptLoadingBox) conceptLoadingBox.hidden = false;
   if (swipeContainer) swipeContainer.hidden = true;
 
-  // 1. Set the user's actual photo in the comparison slider
-  const originalUrl = URL.createObjectURL(file);
-  swipeOriginal.src = originalUrl;
-
   try {
-    // 2. Synthesize a hyper-realistic architectural landscape prompt tailored to Khulna & the analysis
-    let keyFeatures = 'lush vertical climbing bougainvillea on perimeter walls, shady roadside neem and krishnachura trees, sidewalk planter boxes with colorful flowers, tidy modern community waste bins';
-    
-    if (suggestionsText) {
-      const feats = [];
-      if (/bougainvillea|বাগানবিলাস|aparajita|madhabilata|দেয়াল|wall/i.test(suggestionsText)) {
-        feats.push('vibrant blooming bougainvillea, aparajita and creepers naturally climbing walls and iron fences');
-      }
-      if (/neem|নিম|krishnachura|কৃষ্ণচূড়া|canopy|ছায়া|tree/i.test(suggestionsText)) {
-        feats.push('shady leafy neem trees and blooming krishnachura canopy along street');
-      }
-      if (/planter|pot|টব|shrub/i.test(suggestionsText)) {
-        feats.push('neat terracotta flower planters along clean sidewalk curbs');
-      }
-      if (/bin|waste|বর্জ্য/i.test(suggestionsText)) {
-        feats.push('modern tidy community eco waste and recycling bins');
-      }
-      if (feats.length > 0) {
-        keyFeatures = feats.join(', ');
-      }
-    }
+    // 1. Load user photo into an Image
+    const originalUrl = URL.createObjectURL(file);
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = originalUrl;
+    });
 
-    const promptText = `Award-winning architectural documentary photography, realistic street in Khulna Bangladesh revitalized with nature: ${keyFeatures}. Hyper-realistic greenery, detailed botanical foliage, sunny morning tropical lighting, clean open roadway, clear stormwater drains, zero cartoon, zero illustration, 8k resolution photograph.`;
+    swipeOriginal.src = originalUrl;
 
-    const seed = Math.floor(Math.random() * 999999);
-    const encodedPrompt = encodeURIComponent(promptText);
-
-    // FLUX model cascade: FLUX.1 -> FLUX Schnell -> Authentic Architectural Renewal Concept Art
-    const modelCandidates = [
-      `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&width=1024&height=640&nologo=true&seed=${seed}`,
-      `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux-schnell&width=1024&height=640&nologo=true&seed=${seed}`,
-      'assets/khulna-renewal.png'
-    ];
-
-    const loadImage = (url, timeoutMs = 18000) => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        const timer = setTimeout(() => {
-          img.src = '';
-          reject(new Error('Timeout loading image'));
-        }, timeoutMs);
-
-        img.onload = () => {
-          clearTimeout(timer);
-          resolve(url);
-        };
-        img.onerror = () => {
-          clearTimeout(timer);
-          reject(new Error('Failed to load image from ' + url));
-        };
-        img.src = url;
-      });
-    };
-
-    let resolvedUrl = null;
-    for (const url of modelCandidates) {
-      try {
-        console.log('[FLUX Engine] Trying model candidate:', url);
-        resolvedUrl = await loadImage(url, url.startsWith('http') ? 16000 : 3000);
-        if (resolvedUrl) break;
-      } catch (err) {
-        console.warn('[FLUX Engine] Model candidate timed out or failed:', err.message);
-      }
-    }
-
-    swipeTransformed.src = resolvedUrl || 'assets/khulna-renewal.png';
+    // 2. Render Greenery Overlay directly on top of the original photograph
+    const transformedDataUrl = await renderBotanicalOverlay(img, context, suggestionsText);
+    swipeTransformed.src = transformedDataUrl;
 
     if (providerBadge) {
-      providerBadge.textContent = '🌿 FLUX.1 Realistic AI';
+      providerBadge.textContent = '🌿 Greenery Overlay (On Your Photo)';
       providerBadge.style.display = 'inline-flex';
     }
 
   } catch (err) {
-    console.warn('[FLUX Engine] Error generating FLUX visual:', err);
-    swipeTransformed.src = 'assets/khulna-renewal.png';
+    console.warn('[Overlay Engine] Error compositing botanical overlay:', err);
+    swipeTransformed.src = originalUrl;
   } finally {
     if (conceptLoadingBox) conceptLoadingBox.hidden = true;
     if (swipeContainer) swipeContainer.hidden = false;
     setupSwipeSlider(userPhotoSwipe);
   }
+}
+
+function renderBotanicalOverlay(img, context, suggestions) {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    // Maintain aspect ratio, max 1600px width for high definition
+    const maxW = 1600;
+    const width = Math.min(img.naturalWidth || 1200, maxW);
+    const height = Math.round(width * (img.naturalHeight / (img.naturalWidth || width))) || 800;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Draw base photo with warm sunlight enhancement
+    ctx.filter = 'saturate(1.15) contrast(1.04) brightness(1.02)';
+    ctx.drawImage(img, 0, 0, width, height);
+    ctx.filter = 'none';
+
+    // 2. Gentle natural sunbeam gradient
+    const sunGrad = ctx.createLinearGradient(width * 0.2, 0, width * 0.8, height);
+    sunGrad.addColorStop(0, 'rgba(255, 248, 220, 0.08)');
+    sunGrad.addColorStop(0.5, 'rgba(235, 250, 225, 0.03)');
+    sunGrad.addColorStop(1, 'rgba(20, 48, 30, 0.07)');
+    ctx.fillStyle = sunGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // 3. Draw realistic vertical climbers (Left wall/structures)
+    drawBotanicalWallClimbers(ctx, width, height, 0.0, 0.32, false);
+
+    // 4. Draw realistic vertical climbers (Right wall/structures)
+    drawBotanicalWallClimbers(ctx, width, height, 0.70, 1.0, true);
+
+    // 5. Draw roadside sidewalk planters along lower flanks
+    drawBotanicalPlanterBoxes(ctx, width, height);
+
+    // 6. Draw overarching tree canopy foliage (Neem & Krishnachura in top corners)
+    drawBotanicalCanopy(ctx, width, height);
+
+    // 7. Draw subtle natural grass tufts along pavement/dirt boundaries
+    drawNaturalGroundcover(ctx, width, height);
+
+    // 8. Subtle watermark banner
+    drawProposalWatermark(ctx, width, height);
+
+    resolve(canvas.toDataURL('image/jpeg', 0.94));
+  });
+}
+
+/* ── Leaf Drawing with Botanical Midrib, Gradient & Specular Cuticle ─ */
+function drawBotanicalLeaf(ctx, x, y, length, angle, colorScheme = 'emerald') {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  // Soft drop shadow on building wall
+  ctx.shadowColor = 'rgba(15, 30, 18, 0.38)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+
+  const w = length * 0.42;
+
+  // Curving leaf blade
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(-w, -length * 0.35, -w * 0.8, -length * 0.85, 0, -length);
+  ctx.bezierCurveTo(w * 0.8, -length * 0.85, w, -length * 0.35, 0, 0);
+  ctx.closePath();
+
+  // Multi-stop linear gradient along leaf length
+  const grad = ctx.createLinearGradient(0, 0, 0, -length);
+  if (colorScheme === 'emerald') {
+    grad.addColorStop(0, '#153d24');
+    grad.addColorStop(0.45, '#286b36');
+    grad.addColorStop(1, '#569931');
+  } else if (colorScheme === 'olive') {
+    grad.addColorStop(0, '#1b381e');
+    grad.addColorStop(0.5, '#3b6129');
+    grad.addColorStop(1, '#789c3b');
+  } else {
+    // Bright sunlit shoot
+    grad.addColorStop(0, '#24592b');
+    grad.addColorStop(0.5, '#4e8c32');
+    grad.addColorStop(1, '#94c748');
+  }
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Turn off shadow for veins and highlights
+  ctx.shadowColor = 'transparent';
+
+  // Central midrib vein
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-w * 0.08, -length * 0.5, 0, -length * 0.95);
+  ctx.strokeStyle = 'rgba(170, 220, 120, 0.55)';
+  ctx.lineWidth = Math.max(0.7, length * 0.035);
+  ctx.stroke();
+
+  // Lateral veins
+  const veinCount = 4;
+  for (let i = 1; i <= veinCount; i++) {
+    const vy = -length * (i / (veinCount + 1));
+    const vlen = w * (1 - (i / (veinCount + 1))) * 0.65;
+    ctx.beginPath();
+    ctx.moveTo(0, vy);
+    ctx.lineTo(-vlen, vy - length * 0.08);
+    ctx.moveTo(0, vy);
+    ctx.lineTo(vlen, vy - length * 0.08);
+    ctx.strokeStyle = 'rgba(160, 215, 110, 0.3)';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  }
+
+  // Waxy cuticle sunlight reflection
+  ctx.beginPath();
+  ctx.moveTo(0, -length * 0.15);
+  ctx.quadraticCurveTo(-w * 0.45, -length * 0.45, 0, -length * 0.85);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.lineWidth = Math.max(1, length * 0.06);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/* ── Bougainvillea Bract Floral Cluster ────────────────────────── */
+function drawBougainvilleaBractCluster(ctx, cx, cy, radius) {
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Soft floral shadow
+  ctx.shadowColor = 'rgba(40, 10, 25, 0.4)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+
+  // 3-petal bract formation at 120 degree angles
+  const angles = [0, 2.094, 4.188]; // 0, 120°, 240°
+  angles.forEach(ang => {
+    ctx.save();
+    ctx.rotate(ang + (Math.random() - 0.5) * 0.3);
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-radius * 0.5, -radius * 0.4, -radius * 0.95, -radius * 0.85, 0, -radius);
+    ctx.bezierCurveTo(radius * 0.4, -radius * 0.85, radius * 0.5, -radius * 0.4, 0, 0);
+    ctx.closePath();
+
+    const petalGrad = ctx.createRadialGradient(0, -radius * 0.4, radius * 0.1, 0, -radius * 0.5, radius * 0.8);
+    petalGrad.addColorStop(0, '#f72585');
+    petalGrad.addColorStop(0.55, '#c1126b');
+    petalGrad.addColorStop(1, '#78003a');
+    ctx.fillStyle = petalGrad;
+    ctx.globalAlpha = 0.92;
+    ctx.fill();
+
+    // Delicate papery petal vein
+    ctx.shadowColor = 'transparent';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, -radius * 0.85);
+    ctx.strokeStyle = 'rgba(255, 200, 230, 0.4)';
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+
+    ctx.restore();
+  });
+
+  // Creamy white central floret
+  ctx.shadowColor = 'transparent';
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(2, radius * 0.14), 0, Math.PI * 2);
+  ctx.fillStyle = '#fff9db';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(1, radius * 0.08), 0, Math.PI * 2);
+  ctx.fillStyle = '#ffbe0b';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/* ── Realistic Climbers along Wall Structures ──────────────────── */
+function drawBotanicalWallClimbers(ctx, w, h, xStartRatio, xEndRatio, isRight) {
+  const wallXStart = w * xStartRatio;
+  const wallWidth  = w * (xEndRatio - xStartRatio);
+  const wallBottom = h * 0.88;
+  const wallTop    = h * 0.15;
+
+  // 1. Main woody tendrils/vines winding up the wall
+  const stemCount = Math.floor(wallWidth / 70) + 2;
+  for (let s = 0; s < stemCount; s++) {
+    const rootX = wallXStart + (s / stemCount) * wallWidth + (Math.random() - 0.5) * 30;
+    const topX  = rootX + (isRight ? -1 : 1) * (20 + Math.random() * 40);
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(10, 25, 12, 0.5)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = isRight ? -3 : 3;
+    ctx.shadowOffsetY = 3;
+
+    ctx.beginPath();
+    ctx.moveTo(rootX, wallBottom);
+    const midY1 = wallBottom - (wallBottom - wallTop) * 0.35;
+    const midX1 = rootX + (Math.sin(s * 1.5) * 35);
+    const midY2 = wallBottom - (wallBottom - wallTop) * 0.7;
+    const midX2 = topX + (Math.cos(s * 1.2) * 25);
+    ctx.bezierCurveTo(midX1, midY1, midX2, midY2, topX, wallTop + Math.random() * 60);
+
+    ctx.strokeStyle = '#2d3b22';
+    ctx.lineWidth = 3.5 + Math.random() * 1.5;
+    ctx.stroke();
+
+    // Bark highlight line
+    ctx.shadowColor = 'transparent';
+    ctx.strokeStyle = '#4e613b';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 2. Dense leaf clusters attached to the wall
+  const leafClusters = Math.floor(wallWidth * 0.65);
+  for (let i = 0; i < leafClusters; i++) {
+    const lx = wallXStart + Math.random() * wallWidth;
+    // Higher density along middle and upper wall
+    const ly = wallTop + Math.pow(Math.random(), 0.85) * (wallBottom - wallTop);
+    const leafLen = 22 + Math.random() * 18;
+    const leafAngle = (isRight ? -0.8 : 0.8) + (Math.random() - 0.5) * 1.4;
+    const scheme = (i % 3 === 0) ? 'lime' : ((i % 3 === 1) ? 'emerald' : 'olive');
+
+    drawBotanicalLeaf(ctx, lx, ly, leafLen, leafAngle, scheme);
+  }
+
+  // 3. Bougainvillea cascading flower clusters tumbling from wall tops & ledges
+  const flowerClusters = Math.floor(wallWidth / 22);
+  for (let f = 0; f < flowerClusters; f++) {
+    const fx = wallXStart + Math.random() * wallWidth;
+    // Bougainvillea cascades in upper 65% of the wall
+    const fy = wallTop + Math.random() * ((wallBottom - wallTop) * 0.65);
+    const r = 12 + Math.random() * 9;
+    drawBougainvilleaBractCluster(ctx, fx, fy, r);
+  }
+}
+
+/* ── Roadside Sidewalk Planter Boxes ───────────────────────────── */
+function drawBotanicalPlanterBoxes(ctx, w, h) {
+  const boxWidth  = Math.min(260, w * 0.22);
+  const boxHeight = 65;
+  const bottomY   = h - 25;
+
+  // Left Planter Box
+  drawSinglePlanterBox(ctx, w * 0.04, bottomY - boxHeight, boxWidth, boxHeight);
+
+  // Right Planter Box
+  drawSinglePlanterBox(ctx, w * 0.96 - boxWidth, bottomY - boxHeight, boxWidth, boxHeight);
+}
+
+function drawSinglePlanterBox(ctx, x, y, width, height) {
+  ctx.save();
+
+  // Cast shadow on ground
+  ctx.fillStyle = 'rgba(10, 20, 15, 0.4)';
+  ctx.beginPath();
+  ctx.ellipse(x + width / 2, y + height + 6, width * 0.55, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Planter body (Terracotta with 3D gradient)
+  const boxGrad = ctx.createLinearGradient(x, y, x + width, y);
+  boxGrad.addColorStop(0, '#9c4120');
+  boxGrad.addColorStop(0.3, '#c2582e');
+  boxGrad.addColorStop(0.7, '#d66a3d');
+  boxGrad.addColorStop(1, '#8b3819');
+  ctx.fillStyle = boxGrad;
+
+  // Rounded bevel rectangle
+  const r = 4;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width - 8, y + height);
+  ctx.lineTo(x + 8, y + height);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fill();
+
+  // Planter Rim
+  ctx.fillStyle = '#db7346';
+  ctx.fillRect(x - 4, y - 4, width + 8, 12);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.fillRect(x - 4, y - 4, width + 8, 2);
+
+  // Dark potting soil line
+  ctx.fillStyle = '#2d1e15';
+  ctx.fillRect(x + 4, y + 2, width - 8, 6);
+
+  ctx.restore();
+
+  // Lush plants bursting out of the planter
+  const plantCount = Math.floor(width / 16);
+  for (let p = 0; p < plantCount; p++) {
+    const px = x + 10 + (p / plantCount) * (width - 20) + (Math.random() - 0.5) * 12;
+    const py = y + 2;
+    const plen = 35 + Math.random() * 25;
+    const angle = (p < plantCount / 2 ? -0.5 : 0.5) + (Math.random() - 0.5) * 0.8;
+    drawBotanicalLeaf(ctx, px, py, plen, angle, (p % 2 === 0 ? 'emerald' : 'lime'));
+  }
+
+  // Trailing ivy spilling over the front of the planter
+  for (let t = 0; t < 5; t++) {
+    const tx = x + 20 + t * (width / 5) + (Math.random() - 0.5) * 15;
+    const ty = y + 8;
+    for (let j = 0; j < 3; j++) {
+      drawBotanicalLeaf(ctx, tx + (j * 4), ty + (j * 14), 16, Math.PI - 0.2 + (Math.random() - 0.5) * 0.4, 'olive');
+    }
+  }
+
+  // Scarlet Ixora flower clusters in planter
+  for (let f = 0; f < 3; f++) {
+    const fx = x + 30 + f * (width / 3.5);
+    const fy = y - 18 - Math.random() * 15;
+    drawIxoraFlowerCluster(ctx, fx, fy, 14);
+  }
+}
+
+/* ── Scarlet Ixora Flower Cluster (রঙ্গন ফুল) ──────────────────── */
+function drawIxoraFlowerCluster(ctx, cx, cy, radius) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.shadowColor = 'rgba(20, 5, 5, 0.35)';
+  ctx.shadowBlur = 4;
+
+  const florets = 9;
+  for (let i = 0; i < florets; i++) {
+    const dist = (i === 0 ? 0 : radius * 0.65);
+    const ang  = (i * (Math.PI * 2 / (florets - 1)));
+    const fx   = Math.cos(ang) * dist;
+    const fy   = Math.sin(ang) * dist;
+
+    // 4 tiny petals per floret
+    for (let p = 0; p < 4; p++) {
+      ctx.save();
+      ctx.translate(fx, fy);
+      ctx.rotate(p * (Math.PI / 2));
+      ctx.beginPath();
+      ctx.ellipse(0, -4, 2, 4, 0, 0, Math.PI * 2);
+      ctx.fillStyle = (i % 2 === 0 ? '#e63946' : '#d90429');
+      ctx.fill();
+      ctx.restore();
+    }
+    // Gold center
+    ctx.beginPath();
+    ctx.arc(fx, fy, 1.2, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffbe0b';
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ── Overarching Tree Canopy (Neem & Krishnachura in top corners) ─ */
+function drawBotanicalCanopy(ctx, w, h) {
+  const canopyDepth = h * 0.32;
+
+  // Left Canopy
+  drawCanopyBranch(ctx, 0, 0, w * 0.42, canopyDepth, false);
+
+  // Right Canopy
+  drawCanopyBranch(ctx, w, 0, w * 0.42, canopyDepth, true);
+}
+
+function drawCanopyBranch(ctx, rootX, rootY, reachX, reachY, isRight) {
+  const leafCount = Math.floor((reachX * reachY) / 1100);
+
+  // Deep background foliage layer
+  for (let b = 0; b < leafCount; b++) {
+    const lx = rootX + (isRight ? -1 : 1) * Math.pow(Math.random(), 0.75) * reachX;
+    const ly = rootY + Math.pow(Math.random(), 0.8) * reachY;
+    const len = 30 + Math.random() * 25;
+    const ang = (isRight ? 2.2 : -2.2) + (Math.random() - 0.5) * 1.2;
+    drawBotanicalLeaf(ctx, lx, ly, len, ang, 'emerald');
+  }
+
+  // Sunlit foreground foliage layer
+  for (let f = 0; f < leafCount * 0.5; f++) {
+    const lx = rootX + (isRight ? -1 : 1) * Math.pow(Math.random(), 0.9) * (reachX * 0.85);
+    const ly = rootY + Math.pow(Math.random(), 0.9) * (reachY * 0.85);
+    const len = 24 + Math.random() * 18;
+    const ang = (isRight ? 2.0 : -2.0) + (Math.random() - 0.5) * 1.0;
+    drawBotanicalLeaf(ctx, lx, ly, len, ang, 'lime');
+  }
+
+  // Scarlet Krishnachura blooms nestled in the canopy
+  const bloomCount = 14;
+  for (let k = 0; k < bloomCount; k++) {
+    const kx = rootX + (isRight ? -1 : 1) * (30 + Math.random() * (reachX * 0.75));
+    const ky = rootY + 15 + Math.random() * (reachY * 0.7);
+    drawKrishnachuraBloom(ctx, kx, ky, 12 + Math.random() * 6);
+  }
+}
+
+function drawKrishnachuraBloom(ctx, cx, cy, size) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.shadowColor = 'rgba(30, 0, 0, 0.4)';
+  ctx.shadowBlur = 5;
+
+  // 5 crinkled petals
+  for (let p = 0; p < 5; p++) {
+    ctx.save();
+    ctx.rotate(p * (Math.PI * 2 / 5));
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-size * 0.4, -size * 0.5, -size * 0.35, -size * 0.95, 0, -size);
+    ctx.bezierCurveTo(size * 0.35, -size * 0.95, size * 0.4, -size * 0.5, 0, 0);
+    ctx.closePath();
+
+    if (p === 0) {
+      // Standard petal: variegated yellow & scarlet
+      ctx.fillStyle = '#fff3b0';
+      ctx.fill();
+      ctx.strokeStyle = '#e63946';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = '#e63946';
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Long stamens
+  ctx.strokeStyle = '#f4a261';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(size * 0.3, -size * 0.4, size * 0.2, -size * 0.8);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/* ── Natural Groundcover along Curbs ───────────────────────────── */
+function drawNaturalGroundcover(ctx, w, h) {
+  const curbLeftW  = w * 0.28;
+  const curbRightW = w * 0.28;
+  const groundY    = h - 8;
+
+  // Left edge grass clumps
+  for (let x = 0; x < curbLeftW; x += 18) {
+    drawGrassClump(ctx, x + (Math.random() - 0.5) * 10, groundY, 18 + Math.random() * 14);
+  }
+
+  // Right edge grass clumps
+  for (let x = w - curbRightW; x < w; x += 18) {
+    drawGrassClump(ctx, x + (Math.random() - 0.5) * 10, groundY, 18 + Math.random() * 14);
+  }
+}
+
+function drawGrassClump(ctx, cx, cy, height) {
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  const blades = 7;
+  for (let i = 0; i < blades; i++) {
+    const angle = ((i - blades / 2) / blades) * 0.9 + (Math.random() - 0.5) * 0.2;
+    const h = height * (0.7 + Math.random() * 0.5);
+
+    ctx.save();
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(-1.5, 0);
+    ctx.quadraticCurveTo(-0.5, -h * 0.6, 0, -h);
+    ctx.quadraticCurveTo(0.5, -h * 0.6, 1.5, 0);
+    ctx.closePath();
+    ctx.fillStyle = (i % 2 === 0 ? '#386629' : '#558b2f');
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/* ── Architectural Watermark Ribbon ────────────────────────────── */
+function drawProposalWatermark(ctx, w, h) {
+  ctx.save();
+  const barHeight = Math.max(26, h * 0.038);
+  ctx.fillStyle = 'rgba(18, 45, 32, 0.82)';
+  ctx.fillRect(0, h - barHeight, w, barHeight);
+
+  ctx.fillStyle = '#bad58a';
+  ctx.font = `bold ${Math.max(11, Math.round(barHeight * 0.44))}px Arial, sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.fillText('🌿 Green Before Grey · Architectural Transformation Proposal', 16, h - (barHeight * 0.32));
+
+  ctx.fillStyle = '#e5eed5';
+  ctx.textAlign = 'right';
+  ctx.font = `${Math.max(10, Math.round(barHeight * 0.40))}px Arial, sans-serif`;
+  ctx.fillText('Zero Point, Khulna', w - 16, h - (barHeight * 0.32));
+  ctx.restore();
 }
 
 /* ── Interactive Swipe Slider Controller ───────────────────────── */
