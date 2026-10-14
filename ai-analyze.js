@@ -509,10 +509,46 @@ btnAnalyze?.addEventListener('click', async () => {
    uploaded photo so that the exact building architecture, walls,
    and layout are preserved while adding lush photorealistic greenery. */
 
+function prepareImageForUpload(file, maxDimension = 1280) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width <= maxDimension && height <= maxDimension && file.size < 2 * 1024 * 1024) {
+        resolve(file);
+        return;
+      }
+      if (width > height) {
+        height = Math.round((height * maxDimension) / width);
+        width = maxDimension;
+      } else {
+        width = Math.round((width * maxDimension) / height);
+        height = maxDimension;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => {
+        resolve(blob || file);
+      }, 'image/jpeg', 0.88);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
+
 async function uploadPhotoForImg2Img(file) {
   try {
+    const optimizedFile = await prepareImageForUpload(file);
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', optimizedFile, 'user-street.jpg');
     const res = await fetch('https://tmpfiles.org/api/v1/upload', {
       method: 'POST',
       body: formData
@@ -520,7 +556,15 @@ async function uploadPhotoForImg2Img(file) {
     if (res.ok) {
       const json = await res.json();
       if (json?.data?.url) {
-        // Convert to direct download link: https://tmpfiles.org/dl/{id}/{name}
+        // Fetch intermediate landing page to extract exact tokenized direct download link
+        const pageRes = await fetch(json.data.url);
+        if (pageRes.ok) {
+          const html = await pageRes.text();
+          const match = html.match(/href="(https:\/\/tmpfiles\.org\/dl\/[^"]+)"/);
+          if (match && match[1]) {
+            return match[1];
+          }
+        }
         return json.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
       }
     }
