@@ -194,8 +194,8 @@ function fileToBase64(file) {
 function buildPrompt(context) {
   const lang = window.getLanguage?.() || 'en';
   const langInstruction = lang === 'bn'
-    ? 'Respond in clear, accessible Bangla (বাংলা) language with Bengali plant names.'
-    : 'Respond in clear English with local common plant names in brackets.';
+    ? 'Write the "interventions" section in clear, accessible Bangla (বাংলা) language with Bengali plant names.'
+    : 'Write the "interventions" section in clear English with local common plant names in brackets.';
 
   const contextMap = {
     general: 'Provide a comprehensive analysis covering vertical gardening, green corridors, waste management, and practical community interventions.',
@@ -218,6 +218,8 @@ Explicitly connect your recommendations to closing this measured greenery defici
 `;
   }
 
+  const fluxSystemInstruction = `To write flux_prompt, carefully inspect the uploaded image and describe its exact spatial layout from left to right and foreground to background: specify the exact camera angle, eye-level perspective, pathway/road position, width, surface material, and the exact colors, stories, window styles, and textures of every building or wall on the left, center, and right. DO NOT invent a generic wide street. Lock in the exact same buildings, wall colors, and walkway layout, and describe how that exact scene looks after cleaning up all litter/trash, adding lush climbing creeper vines (like Bougainvillea or Money Plant) growing up the existing bare walls, transforming messy/overgrown or barren patches into neat landscaped green planter beds, and placing a tidy modern waste/recycling bin beside the existing path. Style: photorealistic daytime street photography, natural sunlight, South Asian / Dhaka neighborhood architecture.`;
+
   return `You are an expert urban ecologist and greening planner specializing in South Asian neighborhoods (especially Bangladesh).
 ${langInstruction}
 ${gisPrompt}
@@ -225,8 +227,8 @@ Carefully inspect this photo of an urban street / building frontage. Identify sp
 
 Focus area: ${contextMap[context] || contextMap.general}
 
-Format your response with these exact emoji sections:
-
+Return your response as a valid JSON object with EXACTLY these two keys:
+1. "interventions": A Markdown string containing actionable greening recommendations formatted with these sections:
 🌿 **Vertical Gardening / দেয়ালে লতাগাছ**
 - Point out bare walls, fences, boundary walls, or grills visible in the photo suitable for climbers.
 - Recommend resilient local species: Bougainvillea (বাগানবিলাস), Money Plant (মানি প্ল্যান্ট), Madhabilata (মাধবীলতা), Star Jasmine, Aparajita (অপরাজিতা).
@@ -248,7 +250,8 @@ Format your response with these exact emoji sections:
 ⚠️ **Key Checks Before Planting / আগে যাচাই করুন**
 - Ensure road passage, cycle-van clearance, and stormwater drainage lines remain completely free.
 
-Keep all recommendations practical, affordable, and tailored to local community implementation.`;
+2. "flux_prompt": A detailed 80-word visual prompt strictly following this instruction (in English for FLUX.1):
+${fluxSystemInstruction}`;
 }
 
 /* ── Local Intelligent GIS-Aware Botanical Action Plan Engine ───── */
@@ -314,6 +317,43 @@ ${isGap ? '⚠️ **Priority Notice:** This site is in an acute vegetation defic
 - Keep street stormwater drains 100% free of soil or debris spillage.`;
 }
 
+/* ── Structured Gemini Response Parser ─────────────────────────── */
+function parseGeminiResponse(rawText) {
+  if (!rawText) return { interventions: '', flux_prompt: '' };
+  try {
+    const parsed = JSON.parse(rawText);
+    if (parsed.interventions || parsed.flux_prompt) {
+      return {
+        interventions: parsed.interventions || '',
+        flux_prompt: parsed.flux_prompt || ''
+      };
+    }
+  } catch (e) {
+    // Strip markdown code fences if present
+    const clean = rawText.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
+    try {
+      const parsed = JSON.parse(clean);
+      if (parsed.interventions || parsed.flux_prompt) {
+        return {
+          interventions: parsed.interventions || '',
+          flux_prompt: parsed.flux_prompt || ''
+        };
+      }
+    } catch (e2) {
+      // Regex extraction fallback
+      const fluxMatch = rawText.match(/"flux_prompt"\s*:\s*"([\s\S]*?)"\s*[,}]/);
+      const intervMatch = rawText.match(/"interventions"\s*:\s*"([\s\S]*?)"\s*[,}]/);
+      if (fluxMatch || intervMatch) {
+        return {
+          interventions: intervMatch ? intervMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : rawText,
+          flux_prompt: fluxMatch ? fluxMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : ''
+        };
+      }
+    }
+  }
+  return { interventions: rawText, flux_prompt: '' };
+}
+
 /* ── Multi-Tier AI Analysis & Automated Failover Pipeline ──────── */
 btnAnalyze?.addEventListener('click', async () => {
   if (!uploadedFile) {
@@ -346,6 +386,7 @@ btnAnalyze?.addEventListener('click', async () => {
   }, 2200);
 
   let suggestions = '';
+  let dynamicFluxPrompt = '';
   let providerInfo = '';
 
   try {
@@ -355,16 +396,16 @@ btnAnalyze?.addEventListener('click', async () => {
     const apiKey = getActiveApiKey();
 
     // ── Tier 1: Multi-Model Google Gemini Cluster ──────────────────
-    // Ordered by active responsiveness & verified availability
+    // Prioritizing requested vision models with automated fallback
     const candidateGeminiModels = [
-      'gemini-3-flash-preview',
+      'gemini-1.5-flash',
+      'gemini-2.5-flash',
       'gemini-flash-lite-latest',
-      'gemini-3.5-flash-lite',
-      'gemini-3.1-flash-lite-preview',
-      'gemini-3.8-flash',
-      'gemini-3.5-flash',
       'gemini-flash-latest',
-      'gemini-3.1-flash-lite'
+      'gemini-3-flash-preview',
+      'gemini-3.5-flash',
+      'gemini-3.1-flash-lite-preview',
+      'gemini-3.8-flash'
     ];
 
     for (let i = 0; i < candidateGeminiModels.length; i++) {
@@ -390,6 +431,7 @@ btnAnalyze?.addEventListener('click', async () => {
                 ]
               }],
               generationConfig: {
+                response_mime_type: 'application/json',
                 temperature: 0.7,
                 maxOutputTokens: 2048
               }
@@ -403,10 +445,14 @@ btnAnalyze?.addEventListener('click', async () => {
           const data = await response.json();
           const candText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (candText && candText.trim().length > 40) {
-            suggestions = candText;
-            providerInfo = `⚡ Gemini ${model.replace('gemini-', '').replace('-preview', '')}`;
-            console.log(`[AI Pipeline] Success via ${model}`);
-            break;
+            const parsed = parseGeminiResponse(candText);
+            if (parsed.interventions && parsed.interventions.trim().length > 30) {
+              suggestions = parsed.interventions;
+              dynamicFluxPrompt = parsed.flux_prompt || '';
+              providerInfo = `⚡ Gemini ${model.replace('gemini-', '').replace('-preview', '')}`;
+              console.log(`[AI Pipeline] Success via ${model}. Dynamic FLUX prompt generated:`, dynamicFluxPrompt.substring(0, 60));
+              break;
+            }
           }
         } else {
           console.warn(`[AI Pipeline] Model ${model} returned ${response.status}. Automatically failing over to next model...`);
@@ -433,10 +479,11 @@ btnAnalyze?.addEventListener('click', async () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: [
-              { role: 'system', content: 'You are an expert urban ecologist and greening planner specializing in South Asian neighborhoods.' },
+              { role: 'system', content: 'You are an expert urban ecologist and greening planner specializing in South Asian neighborhoods. Respond in valid JSON.' },
               { role: 'user', content: promptText }
             ],
-            model: 'openai'
+            model: 'openai',
+            jsonMode: true
           }),
           signal: polController.signal
         });
@@ -445,7 +492,9 @@ btnAnalyze?.addEventListener('click', async () => {
         if (polRes.ok) {
           const polText = await polRes.text();
           if (polText && polText.length > 80) {
-            suggestions = polText;
+            const parsed = parseGeminiResponse(polText);
+            suggestions = parsed.interventions || polText;
+            dynamicFluxPrompt = parsed.flux_prompt || '';
             providerInfo = '⚡ High-Availability Cloud AI';
             console.log('[AI Pipeline] Success via Pollinations AI cloud');
           }
@@ -478,8 +527,8 @@ btnAnalyze?.addEventListener('click', async () => {
     aiLoading.hidden = true;
     aiResultContent.hidden = false;
 
-    // Generate photorealistic visual transformation with FLUX.1
-    generateVisualTransformation(uploadedFile, context, suggestions);
+    // Generate photorealistic visual transformation with FLUX.1 using dynamic prompt
+    generateVisualTransformation(uploadedFile, context, suggestions, dynamicFluxPrompt);
 
   } catch (error) {
     clearInterval(tipInterval);
@@ -495,7 +544,7 @@ btnAnalyze?.addEventListener('click', async () => {
       }
       aiLoading.hidden = true;
       aiResultContent.hidden = false;
-      generateVisualTransformation(uploadedFile, aiContext?.value || 'all', suggestions);
+      generateVisualTransformation(uploadedFile, aiContext?.value || 'all', suggestions, dynamicFluxPrompt);
     } catch (fallbackErr) {
       aiLoading.hidden = true;
       aiError.hidden = false;
@@ -504,10 +553,54 @@ btnAnalyze?.addEventListener('click', async () => {
   }
 });
 
+
 /* ── /* ── FLUX.1 Photorealistic Image-to-Image Greenery Engine ─────── */
 /* Uses FLUX.1 with structural image conditioning on the user's
    uploaded photo so that the exact building architecture, walls,
    and layout are preserved while adding lush photorealistic greenery. */
+
+function getImageDimensions(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const dims = {
+        width: img.naturalWidth || img.width || 1024,
+        height: img.naturalHeight || img.height || 768
+      };
+      URL.revokeObjectURL(url);
+      resolve(dims);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: 1024, height: 768 });
+    };
+    img.src = url;
+  });
+}
+
+function getProportionalDimensions(naturalWidth, naturalHeight, maxDimension = 1024) {
+  let w = naturalWidth || 1024;
+  let h = naturalHeight || 768;
+  const aspect = w / h;
+
+  if (w >= h) {
+    w = Math.min(w, maxDimension);
+    h = Math.round(w / aspect);
+  } else {
+    h = Math.min(h, maxDimension);
+    w = Math.round(h * aspect);
+  }
+
+  // Round to nearest multiple of 16 for FLUX.1 neural compatibility
+  w = Math.max(256, Math.round(w / 16) * 16);
+  h = Math.max(256, Math.round(h / 16) * 16);
+
+  if (w > maxDimension) w = maxDimension;
+  if (h > maxDimension) h = maxDimension;
+
+  return { width: w, height: h };
+}
 
 function prepareImageForUpload(file, maxDimension = 1280) {
   return new Promise((resolve) => {
@@ -574,7 +667,7 @@ async function uploadPhotoForImg2Img(file) {
   return null;
 }
 
-async function generateVisualTransformation(file, context, suggestionsText = '') {
+async function generateVisualTransformation(file, context, suggestionsText = '', customFluxPrompt = '') {
   const swipeContainer    = $('#concept-swipe-container');
   const swipeTransformed  = $('#swipe-transformed');
   const swipeOriginal     = $('#swipe-original');
@@ -592,48 +685,41 @@ async function generateVisualTransformation(file, context, suggestionsText = '')
   swipeOriginal.src = originalUrl;
 
   try {
-    // 2. Upload photo to get temporary direct URL for FLUX img2img
+    // 2. Measure natural dimensions of uploaded photo and calculate matching aspect ratio (multiples of 16, max 1024)
+    const naturalDims = await getImageDimensions(file);
+    const { width, height } = getProportionalDimensions(naturalDims.width, naturalDims.height, 1024);
+    console.log(`[FLUX.1 Engine] Native image size: ${naturalDims.width}x${naturalDims.height} -> Proportional FLUX dimensions: ${width}x${height}`);
+
+    // 3. Obtain hosted URL for image-to-image conditioning if possible
     const hostedUrl = await uploadPhotoForImg2Img(file);
 
-    // 3. Craft realistic greenery prompt tailored to the street interventions
-    let plantDetails = 'dense blooming bougainvillea climbing on walls with vibrant magenta flowers, neat roadside sidewalk planters with colorful flowers, lush green grass on ground, shady tropical tree canopy';
-    if (suggestionsText) {
-      const parts = [];
-      if (/bougainvillea|বাগানবিলাস|aparajita|madhabilata|দেয়াল|wall/i.test(suggestionsText)) {
-        parts.push('blooming bougainvillea and ivy vines climbing walls');
-      }
-      if (/neem|নিম|krishnachura|কৃষ্ণচূড়া|canopy|ছায়া/i.test(suggestionsText)) {
-        parts.push('shady tree canopy overhead');
-      }
-      if (/planter|pot|টব|shrub/i.test(suggestionsText)) {
-        parts.push('terracotta flower planters along sidewalk');
-      }
-      if (parts.length > 0) plantDetails = parts.join(', ');
+    // 4. Construct or use the dynamic flux_prompt returned by Gemini
+    let effectivePrompt = (customFluxPrompt || '').trim();
+    if (!effectivePrompt || effectivePrompt.length < 25) {
+      // Precise fallback geometry if cloud prompt was unavailable
+      effectivePrompt = `Photorealistic daytime street photography, natural sunlight, South Asian Dhaka neighborhood architecture. The camera angle is an eye-level perspective looking down the street. Existing buildings and walls are preserved with litter cleaned up, lush flowering Bougainvillea creepers climb bare walls, tidy green planter beds line the walkway, and a modern recycling bin sits beside the path.`;
     }
 
-    const seed = Math.floor(Math.random() * 999999);
+    const seed = Math.floor(Math.random() * 10000);
+    const encodedPrompt = encodeURIComponent(effectivePrompt);
     let candidateUrls = [];
 
+    // Candidate 1: Image-conditioned FLUX.1 with dynamic spatial prompt + matching aspect ratio + enhance=false
     if (hostedUrl) {
-      // True Image-to-Image with FLUX.1 (preserves user image, adds greenery on top)
-      const img2imgPrompt = encodeURIComponent(
-        `photorealistic architectural photography, add ${plantDetails}, keep exact buildings, walls, and road layout intact, lush green natural environment, realistic 8k photograph`
-      );
       candidateUrls.push(
-        `https://image.pollinations.ai/prompt/${img2imgPrompt}?model=flux&image=${encodeURIComponent(hostedUrl)}&nologo=true&seed=${seed}`
+        `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&image=${encodeURIComponent(hostedUrl)}&width=${width}&height=${height}&nologo=true&enhance=false&seed=${seed}`
       );
     }
 
-    // Secondary fallback: High-fidelity FLUX prompt conditioning
-    const textPrompt = encodeURIComponent(
-      `Award-winning architectural documentary photography, realistic street in Khulna Bangladesh with buildings and walls revitalized: ${plantDetails}, warm sunlight, clean open road, National Geographic nature photography, zero cartoon, zero illustration, 8k photograph`
-    );
+    // Candidate 2: Dynamic prompt FLUX.1 with Gemini's exact spatial description + matching aspect ratio + enhance=false
     candidateUrls.push(
-      `https://image.pollinations.ai/prompt/${textPrompt}?model=flux&width=1024&height=640&nologo=true&seed=${seed}`
+      `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&width=${width}&height=${height}&nologo=true&enhance=false&seed=${seed}`
     );
+
+    // Candidate 3: Local architectural concept fallback
     candidateUrls.push('assets/khulna-renewal.png');
 
-    const loadImageWithTimeout = (url, timeoutMs = 20000) => {
+    const loadImageWithTimeout = (url, timeoutMs = 22000) => {
       return new Promise((resolve, reject) => {
         const img = new Image();
         const timer = setTimeout(() => {
@@ -657,7 +743,7 @@ async function generateVisualTransformation(file, context, suggestionsText = '')
     for (const url of candidateUrls) {
       try {
         console.log('[FLUX.1 Engine] Attempting visual render:', url);
-        resolvedUrl = await loadImageWithTimeout(url, url.startsWith('http') ? 18000 : 3000);
+        resolvedUrl = await loadImageWithTimeout(url, url.startsWith('http') ? 20000 : 3000);
         if (resolvedUrl) break;
       } catch (err) {
         console.warn('[FLUX.1 Engine] Candidate timed out, trying next:', err.message);
