@@ -1,4 +1,4 @@
-/* ── AI Green Advisor ─────────────────────────────────────────── */
+/* ── AI Green Analysis ─────────────────────────────────────────── */
 /* Zero-configuration AI integration:
    - Built-in Gemini API key (no user pasting required)
    - Dual photo input: Camera capture or File selection
