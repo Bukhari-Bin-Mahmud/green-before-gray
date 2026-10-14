@@ -62,12 +62,12 @@ function showStep(n) {
   target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/* ── API Key ───────────────────────────────────────────────────── */
-// Try to restore saved key
+// Try to restore saved key from localStorage or SITE_CONFIG
 try {
-  const saved = localStorage.getItem(KEY_STORAGE);
+  const saved = localStorage.getItem(KEY_STORAGE) || window.SITE_CONFIG?.geminiApiKey;
   if (saved) {
     keyInput.value = saved;
+    apiKey = saved;
     saveKeyCheck.checked = true;
   }
 } catch {}
@@ -223,10 +223,16 @@ btnAnalyze.addEventListener('click', async () => {
     const context = aiContext.value;
     const promptText = buildPrompt(context);
 
-    // Model fallback: try gemini-2.0-flash, then gemini-1.5-flash
+    // Model fallback: tries models with automatic retry on 404 or temporary 503 load
     let data = null;
     let lastError = null;
-    const candidateModels = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    const candidateModels = [
+      'gemini-3-flash-preview',
+      'gemini-3.8-flash',
+      'gemini-3.5-flash',
+      'gemini-flash-latest',
+      'gemini-3.1-flash-lite'
+    ];
 
     for (const model of candidateModels) {
       try {
@@ -259,13 +265,13 @@ btnAnalyze.addEventListener('click', async () => {
         const msg = errData?.error?.message || `API Error: ${response.status}`;
         lastError = new Error(msg);
 
-        // If the error isn't 404 (model not found), don't try next model (e.g. invalid key or quota)
-        if (response.status !== 404) {
+        // If the error isn't 404 or 503 (temporary high demand), fail immediately (e.g. invalid key or quota)
+        if (response.status !== 404 && response.status !== 503) {
           throw lastError;
         }
       } catch (err) {
         lastError = err;
-        if (!err.message.includes('404') && !err.message.includes('not found')) {
+        if (!err.message.includes('404') && !err.message.includes('503') && !err.message.includes('demand') && !err.message.includes('not found')) {
           throw err;
         }
       }
@@ -411,6 +417,6 @@ btnDownload.addEventListener('click', () => {
 });
 
 /* ── Init ──────────────────────────────────────────────────────── */
-showStep(1);
+showStep(apiKey ? 2 : 1);
 
 })();
