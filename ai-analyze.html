@@ -13,12 +13,6 @@
 <p data-i18n="aiPageIntro">Take or upload a photo of your street or house. AI will analyze it and suggest vertical gardens, tree corridors, waste bins, and a colorful green concept.</p>
 </div>
 
-<!-- 2-Step Progress -->
-<div class="request-progress" role="list">
-<span id="progress-one" class="active"><span class="step-num">1</span> <span data-i18n="aiStepPhoto">Photo</span></span>
-<span id="progress-two"><span class="step-num">2</span> <span data-i18n="aiStepPlans">Green Plans</span></span>
-</div>
-
 <!-- Step 1: Capture or Upload Photo -->
 <section id="step-upload" class="ai-step">
 
@@ -130,10 +124,6 @@
         </div>
         <p class="small" data-i18n="aiConceptNote" style="margin-top: 0.35rem;">Drag the center slider to inspect the botanical transformation on your exact uploaded photo.</p>
       </div>
-      <div class="concept-view-tabs" role="tablist">
-        <button type="button" id="tab-slider" class="tab-btn active">🌱 Interactive Comparison</button>
-        <button type="button" id="tab-watercolor" class="tab-btn">🎨 Khulna Concept Art</button>
-      </div>
     </div>
 
     <div id="concept-loading" class="ai-loading" hidden>
@@ -152,12 +142,6 @@
           <span>↔</span>
         </button>
       </div>
-    </div>
-
-    <!-- Watercolor Renewal Concept Image (Alternate view) -->
-    <div id="concept-watercolor-container" hidden>
-      <img id="watercolor-image" src="assets/khulna-renewal.png" alt="Watercolor Renewal of a Khulna Lane" style="width: 100%; border-radius: 0.75rem; box-shadow: 0 4px 16px rgba(0,0,0,0.35);">
-      <p class="small" style="margin-top: 0.6rem; text-align: center; color: #bad58a;">Illustrated Watercolor Renewal Concept for a Khulna Neighborhood Lane</p>
     </div>
   </div>
 

@@ -98,27 +98,9 @@ function showStep(n) {
   stepUpload.hidden = n !== 1;
   stepResult.hidden = n !== 2;
 
-  const p1 = $('#progress-one');
-  const p2 = $('#progress-two');
-  if (p1 && p2) {
-    p1.classList.toggle('active', n === 1);
-    p1.classList.toggle('completed', n === 2);
-    p2.classList.toggle('active', n === 2);
-
-    const num1 = p1.querySelector('.step-num');
-    if (num1) num1.textContent = n === 2 ? '✓' : '1';
-    const num2 = p2.querySelector('.step-num');
-    if (num2) num2.textContent = '2';
-  }
-
   const target = n === 1 ? stepUpload : stepResult;
   target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
-
-// Allow clicking completed step 1 to return and retake photo
-$('#progress-one')?.addEventListener('click', () => {
-  if (currentStep === 2) showStep(1);
-});
 
 // Toast notification helper
 function showToast(msg) {
@@ -839,26 +821,6 @@ function setupSwipeSlider(frame) {
     else if (e.key === 'End') setSplit(100);
   };
 }
-
-/* ── Tab Switcher: Before/After Slider vs Watercolor Concept ───── */
-const tabSlider = $('#tab-slider');
-const tabWatercolor = $('#tab-watercolor');
-const swipeContainer = $('#concept-swipe-container');
-const watercolorContainer = $('#concept-watercolor-container');
-
-tabSlider?.addEventListener('click', () => {
-  tabSlider.classList.add('active');
-  tabWatercolor?.classList.remove('active');
-  if (swipeContainer) swipeContainer.hidden = false;
-  if (watercolorContainer) watercolorContainer.hidden = true;
-});
-
-tabWatercolor?.addEventListener('click', () => {
-  tabWatercolor.classList.add('active');
-  tabSlider?.classList.remove('active');
-  if (swipeContainer) swipeContainer.hidden = true;
-  if (watercolorContainer) watercolorContainer.hidden = false;
-});
 
 /* ── Simple Markdown to HTML with Bento Cards ──────────────────── */
 function markdownToHtml(md) {

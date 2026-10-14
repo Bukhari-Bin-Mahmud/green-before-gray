@@ -9,74 +9,6 @@
   padding: 0 var(--gutter, 1.25rem);
 }
 
-/* ── Stepper Navigation (Pill Capsule Design) ───────────────────── */
-.request-progress {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  margin: 1.5rem auto 2.5rem;
-  padding: 0.35rem 0.5rem;
-  background: #ebefdf;
-  border: 1px solid var(--line, #d3dbca);
-  border-radius: 999px;
-  max-width: 440px;
-  box-shadow: 0 2px 8px rgba(24, 61, 47, 0.06);
-}
-
-.request-progress > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.55rem 1.25rem;
-  border-radius: 999px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--muted, #637267);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  border-bottom: none !important;
-  user-select: none;
-}
-
-.request-progress > span .step-num {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  background: rgba(36, 79, 57, 0.12);
-  color: var(--ink, #183d2f);
-  font-weight: 700;
-  transition: all 0.2s ease;
-}
-
-.request-progress > span.active {
-  background: var(--ink, #183d2f);
-  color: #f6f3e9;
-  box-shadow: 0 2px 10px rgba(24, 61, 47, 0.25);
-}
-
-.request-progress > span.active .step-num {
-  background: #bad58a;
-  color: #153b2e;
-}
-
-.request-progress > span.completed {
-  cursor: pointer;
-  color: var(--ink, #183d2f);
-}
-
-.request-progress > span.completed:hover {
-  background: rgba(36, 79, 57, 0.08);
-}
-
-.request-progress > span.completed .step-num {
-  background: #bad58a;
-  color: #153b2e;
-}
-
 /* ── GIS Grid Context Banner ───────────────────────────────────── */
 .gis-banner {
   background: rgba(186, 213, 138, 0.12);
@@ -466,38 +398,6 @@
   margin-bottom: 1.25rem;
 }
 
-.concept-view-tabs {
-  display: flex;
-  gap: 0.4rem;
-  background: rgba(0, 0, 0, 0.35);
-  padding: 0.3rem;
-  border-radius: 2rem;
-  border: 1px solid rgba(213, 229, 161, 0.2);
-}
-
-.tab-btn {
-  background: transparent;
-  border: none;
-  color: #bad58a;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.5rem 1rem;
-  border-radius: 1.5rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tab-btn:hover {
-  color: #fff;
-}
-
-.tab-btn.active {
-  background: #bad58a;
-  color: #153b2e;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  font-weight: 700;
-}
-
 #concept-swipe-container {
   width: 100%;
 }
@@ -727,16 +627,6 @@
     padding: 1.4rem;
   }
 
-  .request-progress {
-    max-width: 100%;
-    margin: 1rem 0 1.75rem;
-  }
-
-  .request-progress > span {
-    padding: 0.45rem 0.85rem;
-    font-size: 0.8rem;
-  }
-
   .ai-upload-area {
     min-height: 160px;
     padding: 1.5rem 1rem;
@@ -744,11 +634,6 @@
 
   .ai-btn-group .button {
     width: 100%;
-  }
-
-  .concept-view-tabs {
-    width: 100%;
-    justify-content: center;
   }
 
   .ai-toast {
