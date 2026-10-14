@@ -2,7 +2,7 @@
 /* Zero-configuration AI integration:
    - Built-in Gemini API key for scene analysis & green interventions
    - Hugging Face RGB Instruction-Based Image Editing via @gradio/client
-   - Multi-tier failover (FLUX.1-Kontext -> Qwen -> CosXL -> Pix2Pix -> Gemini Native -> Serverless -> Pollinations) */
+   - True Image Editing Priority: 1. Gemini Native (2.5/2.0) -> 2. Gradio Spaces (FLUX.1-Kontext, Qwen-Image-Edit, CosXL, Pix2Pix) -> 3. HF Serverless (Pix2Pix) -> Honest Retry UI */
 
 import { Client, handle_file } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
 
@@ -225,8 +225,6 @@ Explicitly connect your recommendations to closing this measured greenery defici
 `;
   }
 
-  const fluxSystemInstruction = `To write flux_prompt, carefully inspect the uploaded image and describe its exact spatial layout from left to right and foreground to background: specify the exact camera angle, eye-level perspective, pathway/road position, width, surface material, and the exact colors, stories, window styles, and textures of every building or wall on the left, center, and right. DO NOT invent a generic wide street. Lock in the exact same buildings, wall colors, and walkway layout, and describe how that exact scene looks after cleaning up all litter/trash, adding lush climbing creeper vines (like Bougainvillea or Money Plant) growing up the existing bare walls, transforming messy/overgrown or barren patches into neat landscaped green planter beds, and placing a tidy modern waste/recycling bin beside the existing path. Style: photorealistic daytime street photography, natural sunlight, South Asian / Dhaka neighborhood architecture.`;
-
   return `You are an expert urban ecologist and greening planner specializing in South Asian neighborhoods (especially Bangladesh).
 ${langInstruction}
 ${gisPrompt}
@@ -234,7 +232,7 @@ Carefully inspect this photo of an urban street / building frontage. Identify sp
 
 Focus area: ${contextMap[context] || contextMap.general}
 
-Return your response as a valid JSON object with EXACTLY these three keys:
+Return your response as a valid JSON object with EXACTLY these two keys:
 1. "interventions": A Markdown string containing actionable greening recommendations formatted with these sections:
 🌿 **Vertical Gardening / দেয়ালে লতাগাছ**
 - Point out bare walls, fences, boundary walls, or grills visible in the photo suitable for climbers.
@@ -257,10 +255,7 @@ Return your response as a valid JSON object with EXACTLY these three keys:
 ⚠️ **Key Checks Before Planting / আগে যাচাই করুন**
 - Ensure road passage, cycle-van clearance, and stormwater drainage lines remain completely free.
 
-2. "edit_prompt": A concise instruction for direct image editing: "Transform this street photo into an architectural illustrative urban greening proposal while keeping the exact original buildings, windows, sky, overhead wires, and road layout 100% unchanged and aligned. Only add bamboo vertical garden trellises with climbing green vines and small flowers mounted onto the bare walls and fences, neat landscaped fern and shrub planter beds along both sides of the path, clean concrete drain covers along the road edge, and remove any litter."
-
-3. "flux_fallback_prompt": A detailed 80-word visual prompt strictly following this instruction (in English for FLUX.1):
-${fluxSystemInstruction}`;
+2. "edit_prompt": A concise instruction for direct image editing: "Transform this street photo into an architectural illustrative urban greening proposal while keeping the exact original buildings, windows, sky, overhead wires, and road layout 100% unchanged and aligned. Only add bamboo vertical garden trellises with climbing green vines and small flowers mounted onto the bare walls and fences, neat landscaped fern and shrub planter beds along both sides of the path, clean concrete drain covers along the road edge, and remove any litter."`;
 }
 
 /* ── Local Intelligent GIS-Aware Botanical Action Plan Engine ───── */
@@ -328,14 +323,13 @@ ${isGap ? '⚠️ **Priority Notice:** This site is in an acute vegetation defic
 
 /* ── Structured Gemini Response Parser ─────────────────────────── */
 function parseGeminiResponse(rawText) {
-  if (!rawText) return { interventions: '', edit_prompt: '', flux_fallback_prompt: '' };
+  if (!rawText) return { interventions: '', edit_prompt: '' };
   try {
     const parsed = JSON.parse(rawText);
-    if (parsed.interventions || parsed.edit_prompt || parsed.flux_fallback_prompt || parsed.flux_prompt) {
+    if (parsed.interventions || parsed.edit_prompt) {
       return {
         interventions: parsed.interventions || '',
-        edit_prompt: parsed.edit_prompt || '',
-        flux_fallback_prompt: parsed.flux_fallback_prompt || parsed.flux_prompt || ''
+        edit_prompt: parsed.edit_prompt || ''
       };
     }
   } catch (e) {
@@ -343,28 +337,25 @@ function parseGeminiResponse(rawText) {
     const clean = rawText.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
     try {
       const parsed = JSON.parse(clean);
-      if (parsed.interventions || parsed.edit_prompt || parsed.flux_fallback_prompt || parsed.flux_prompt) {
+      if (parsed.interventions || parsed.edit_prompt) {
         return {
           interventions: parsed.interventions || '',
-          edit_prompt: parsed.edit_prompt || '',
-          flux_fallback_prompt: parsed.flux_fallback_prompt || parsed.flux_prompt || ''
+          edit_prompt: parsed.edit_prompt || ''
         };
       }
     } catch (e2) {
       // Regex extraction fallback
       const editMatch = rawText.match(/"edit_prompt"\s*:\s*"([\s\S]*?)"\s*[,}]/);
-      const fluxMatch = rawText.match(/"flux_fallback_prompt"\s*:\s*"([\s\S]*?)"\s*[,}]/) || rawText.match(/"flux_prompt"\s*:\s*"([\s\S]*?)"\s*[,}]/);
       const intervMatch = rawText.match(/"interventions"\s*:\s*"([\s\S]*?)"\s*[,}]/);
-      if (intervMatch || editMatch || fluxMatch) {
+      if (intervMatch || editMatch) {
         return {
           interventions: intervMatch ? intervMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : rawText,
-          edit_prompt: editMatch ? editMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : '',
-          flux_fallback_prompt: fluxMatch ? fluxMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : ''
+          edit_prompt: editMatch ? editMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : ''
         };
       }
     }
   }
-  return { interventions: rawText, edit_prompt: '', flux_fallback_prompt: '' };
+  return { interventions: rawText, edit_prompt: '' };
 }
 
 /* ── Multi-Tier AI Analysis & Automated Failover Pipeline ──────── */
@@ -401,7 +392,6 @@ btnAnalyze?.addEventListener('click', async () => {
 
   let suggestions = '';
   let editPrompt = '';
-  let fluxFallbackPrompt = '';
   let providerInfo = '';
 
   try {
@@ -464,7 +454,6 @@ btnAnalyze?.addEventListener('click', async () => {
             if (parsed.interventions && parsed.interventions.trim().length > 30) {
               suggestions = parsed.interventions;
               editPrompt = parsed.edit_prompt || '';
-              fluxFallbackPrompt = parsed.flux_fallback_prompt || '';
               providerInfo = `⚡ Gemini ${model.replace('gemini-', '').replace('-preview', '')}`;
               console.log(`[AI Pipeline] Success via ${model}. Dynamic edit prompt:`, editPrompt.substring(0, 60));
               break;
@@ -479,51 +468,9 @@ btnAnalyze?.addEventListener('click', async () => {
       }
     }
 
-    // ── Tier 2: Free Secondary AI Cloud (Pollinations AI) ──────────
+    // ── Tier 2: Guaranteed Local GIS-Aware Botanical Action Plan Engine ──
     if (!suggestions) {
-      try {
-        if (aiLoadingStatus) {
-          aiLoadingStatus.textContent = 'Engaging secondary high-availability AI cloud…';
-        }
-        console.log('[AI Pipeline] Tier 1 models unavailable. Switching to Tier 2: Pollinations AI cloud...');
-
-        const polController = new AbortController();
-        const polTimeout = setTimeout(() => polController.abort(), 12000);
-
-        const polRes = await fetch('https://text.pollinations.ai/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [
-              { role: 'system', content: 'You are an expert urban ecologist and greening planner specializing in South Asian neighborhoods. Respond in valid JSON.' },
-              { role: 'user', content: promptText }
-            ],
-            model: 'openai',
-            jsonMode: true
-          }),
-          signal: polController.signal
-        });
-        clearTimeout(polTimeout);
-
-        if (polRes.ok) {
-          const polText = await polRes.text();
-          if (polText && polText.length > 80) {
-            const parsed = parseGeminiResponse(polText);
-            suggestions = parsed.interventions || polText;
-            editPrompt = parsed.edit_prompt || '';
-            fluxFallbackPrompt = parsed.flux_fallback_prompt || '';
-            providerInfo = '⚡ High-Availability Cloud AI';
-            console.log('[AI Pipeline] Success via Pollinations AI cloud');
-          }
-        }
-      } catch (err) {
-        console.warn('[AI Pipeline] Tier 2 Pollinations error:', err.message);
-      }
-    }
-
-    // ── Tier 3: Guaranteed Local GIS-Aware Botanical Action Plan Engine ──
-    if (!suggestions) {
-      console.log('[AI Pipeline] Cloud APIs busy. Engaging Tier 3: Local GIS-Aware Botanical Engine...');
+      console.log('[AI Pipeline] Cloud APIs busy. Engaging Tier 2: Local GIS-Aware Botanical Engine...');
       suggestions = generateLocalGreenPlan(context, gisData);
       providerInfo = '🌱 Khulna EcoGIS Action Plan';
     }
@@ -544,13 +491,12 @@ btnAnalyze?.addEventListener('click', async () => {
     aiLoading.hidden = true;
     aiResultContent.hidden = false;
 
-    // Generate structure-locked visual transformation with Hugging Face ZeroGPU / ControlNet
-    generateVisualTransformation(uploadedFile, context, suggestions, editPrompt, fluxFallbackPrompt);
+    // Generate structure-locked visual transformation with True RGB Image Editors
+    generateVisualTransformation(uploadedFile, context, suggestions, editPrompt);
 
   } catch (error) {
     clearInterval(tipInterval);
     console.error('AI Pipeline Unexpected Error:', error);
-    // Even in unexpected failure, NEVER leave the user stranded on an error screen!
     try {
       suggestions = generateLocalGreenPlan(aiContext?.value || 'all', gisData);
       if (resultPhoto) resultPhoto.src = URL.createObjectURL(uploadedFile);
@@ -561,7 +507,7 @@ btnAnalyze?.addEventListener('click', async () => {
       }
       aiLoading.hidden = true;
       aiResultContent.hidden = false;
-      generateVisualTransformation(uploadedFile, aiContext?.value || 'all', suggestions, editPrompt, fluxFallbackPrompt);
+      generateVisualTransformation(uploadedFile, aiContext?.value || 'all', suggestions, editPrompt);
     } catch (fallbackErr) {
       aiLoading.hidden = true;
       aiError.hidden = false;
@@ -619,71 +565,6 @@ function getProportionalDimensions(naturalWidth, naturalHeight, maxDimension = 1
   return { width: w, height: h };
 }
 
-function prepareImageForUpload(file, maxDimension = 1280) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      let { width, height } = img;
-      if (width <= maxDimension && height <= maxDimension && file.size < 2 * 1024 * 1024) {
-        resolve(file);
-        return;
-      }
-      if (width > height) {
-        height = Math.round((height * maxDimension) / width);
-        width = maxDimension;
-      } else {
-        width = Math.round((width * maxDimension) / height);
-        height = maxDimension;
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob((blob) => {
-        resolve(blob || file);
-      }, 'image/jpeg', 0.88);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(file);
-    };
-    img.src = url;
-  });
-}
-
-async function uploadPhotoForImg2Img(file) {
-  try {
-    const optimizedFile = await prepareImageForUpload(file);
-    const formData = new FormData();
-    formData.append('file', optimizedFile, 'user-street.jpg');
-    const res = await fetch('https://tmpfiles.org/api/v1/upload', {
-      method: 'POST',
-      body: formData
-    });
-    if (res.ok) {
-      const json = await res.json();
-      if (json?.data?.url) {
-        // Fetch intermediate landing page to extract exact tokenized direct download link
-        const pageRes = await fetch(json.data.url);
-        if (pageRes.ok) {
-          const html = await pageRes.text();
-          const match = html.match(/href="(https:\/\/tmpfiles\.org\/dl\/[^"]+)"/);
-          if (match && match[1]) {
-            return match[1];
-          }
-        }
-        return json.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
-      }
-    }
-  } catch (err) {
-    console.warn('[FLUX.1 Engine] Temporary image hosting fallback:', err.message);
-  }
-  return null;
-}
-
 /* ── Gradio & Hugging Face Helpers ─────────────────────────────── */
 function extractGradioOutputUrl(data) {
   if (!data) return null;
@@ -713,343 +594,361 @@ function blobToBase64(blob) {
   });
 }
 
-const loadImageWithTimeout = (url, timeoutMs = 22000) => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const timer = setTimeout(() => {
-      img.src = '';
-      reject(new Error('Timeout loading image'));
-    }, timeoutMs);
+/* ── Dynamic Gradio Space Invoker ─────────────────────────────── */
+async function callGradioSpace(spaceName, buildParamsFn) {
+  console.log(`[Priority 2] Connecting to Hugging Face Space: "${spaceName}"...`);
+  const client = await Client.connect(spaceName, { token: HF_TOKEN, hf_token: HF_TOKEN });
 
-    img.onload = () => {
-      clearTimeout(timer);
-      resolve(url);
-    };
-    img.onerror = () => {
-      clearTimeout(timer);
-      reject(new Error('Failed to load image from ' + url));
-    };
-    img.src = url;
-  });
-};
+  let endpointName = null;
+  let apiInfo = null;
+
+  try {
+    apiInfo = await client.view_api();
+    const namedEndpoints = apiInfo?.named_endpoints || {};
+    const namedKeys = Object.keys(namedEndpoints);
+    console.log(`[Priority 2] ${spaceName} available endpoints:`, namedKeys);
+
+    // Prefer standard instruction edit endpoints
+    const preferredOrder = ['/infer', '/predict', '/run_edit', '/generate'];
+    for (const p of preferredOrder) {
+      if (namedKeys.includes(p)) {
+        endpointName = p;
+        break;
+      }
+    }
+
+    // If preferred not found, find first endpoint taking parameters
+    if (!endpointName && namedKeys.length > 0) {
+      endpointName = namedKeys.find(k => (namedEndpoints[k]?.parameters || []).length > 0) || namedKeys[0];
+    }
+  } catch (apiErr) {
+    console.warn(`[Priority 2] client.view_api() check failed for ${spaceName}:`, apiErr.message);
+  }
+
+  if (!endpointName) endpointName = '/infer';
+  console.log(`[Priority 2] Invoking endpoint "${endpointName}" on ${spaceName}...`);
+
+  const params = buildParamsFn(apiInfo?.named_endpoints?.[endpointName]);
+  const result = await client.predict(endpointName, params);
+  const resultUrl = extractGradioOutputUrl(result?.data);
+  if (!resultUrl) {
+    throw new Error(`Endpoint "${endpointName}" returned no valid image URL.`);
+  }
+  return resultUrl;
+}
 
 /* ── Multi-Tier Structure-Locked Image-to-Image Pipeline ───────── */
-async function generateStructureLockedImage(imageBlob, editPrompt, fluxFallbackPrompt, naturalWidth = 1024, naturalHeight = 768) {
+async function generateStructureLockedImage(imageBlob, editPrompt, naturalWidth = 1024, naturalHeight = 768) {
   const { width, height } = getProportionalDimensions(naturalWidth, naturalHeight, 1024);
   console.log(`[Structure-Locked Pipeline] Target dimensions: ${width}x${height}`);
 
-  // Strict architectural illustrative instruction prompt preserving 100% of background architecture and wires
   const instructionPrompt = ARCHITECTURAL_EDIT_PROMPT;
+  const failureLog = [];
+  const base64Data = await blobToBase64(imageBlob);
+  const apiKey = getActiveApiKey();
+  const conceptLoadingP = $('#concept-loading-text');
 
-  // ── Tier 1: Hugging Face Gradio Client (@gradio/client) True Image Editors ──
+  // ═════════════════════════════════════════════════════════════════
+  // 1st Priority: Gemini Native Image Editing
+  // Fastest and best at keeping background buildings, wires & walls 100% untouched
+  // ═════════════════════════════════════════════════════════════════
+  const geminiModels = [
+    'gemini-2.5-flash-image',
+    'gemini-2.0-flash-exp-image-generation'
+  ];
 
-  // Space A: black-forest-labs/FLUX.1-Kontext-dev
+  for (const model of geminiModels) {
+    try {
+      console.log(`[1st Priority] Calling Gemini Native Image Editing via ${model}...`);
+      if (conceptLoadingP) {
+        conceptLoadingP.textContent = `Rendering architectural greenery via Gemini (${model.replace('gemini-', '')})…`;
+      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 22000);
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: instructionPrompt },
+                {
+                  inline_data: {
+                    mime_type: imageBlob.type || 'image/jpeg',
+                    data: base64Data
+                  }
+                }
+              ]
+            }],
+            generationConfig: {
+              responseModalities: ["TEXT", "IMAGE"]
+            }
+          }),
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        const parts = data?.candidates?.[0]?.content?.parts || [];
+        for (const p of parts) {
+          const imgData = p.inlineData || p.inline_data;
+          if (imgData && imgData.data) {
+            const mime = imgData.mimeType || imgData.mime_type || 'image/png';
+            console.log(`[1st Priority] Success via Gemini native image editing (${model})`);
+            return {
+              url: `data:${mime};base64,${imgData.data}`,
+              type: 'structure-locked',
+              badge: `🌿 Illustrative Proposal (Gemini Native)`
+            };
+          }
+        }
+        failureLog.push(`Gemini ${model}: No image returned in response`);
+      } else {
+        const errText = await res.text();
+        let reason = `HTTP ${res.status}`;
+        try {
+          const errObj = JSON.parse(errText);
+          if (errObj?.error?.message) {
+            reason += ` (${errObj.error.message.substring(0, 80)})`;
+          }
+        } catch {}
+        console.warn(`[1st Priority] ${model} failed: ${reason}`);
+        failureLog.push(`Gemini ${model}: ${reason}`);
+      }
+    } catch (err) {
+      console.warn(`[1st Priority] Error on ${model}:`, err.message);
+      failureLog.push(`Gemini ${model}: ${err.message}`);
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // 2nd Priority: Hugging Face @gradio/client Spaces
+  // ═════════════════════════════════════════════════════════════════
+  if (conceptLoadingP) {
+    conceptLoadingP.textContent = 'Rendering architectural greenery via Hugging Face ZeroGPU…';
+  }
+
+  // Space 2A: black-forest-labs/FLUX.1-Kontext-dev
   try {
-    console.log('[Tier 1A] Connecting to black-forest-labs/FLUX.1-Kontext-dev with HF token...');
-    const client = await Client.connect('black-forest-labs/FLUX.1-Kontext-dev', { token: HF_TOKEN, hf_token: HF_TOKEN });
-    const seed = Math.floor(Math.random() * 1000000);
-    const result = await client.predict('/infer', [
+    const resultUrl = await callGradioSpace('black-forest-labs/FLUX.1-Kontext-dev', () => [
       handle_file(imageBlob),
       instructionPrompt,
-      seed,
+      Math.floor(Math.random() * 1000000),
       true,    // randomize_seed
       2.5,     // guidance_scale
       28       // steps
     ]);
-
-    const resultUrl = extractGradioOutputUrl(result?.data);
-    if (resultUrl) {
-      console.log('[Tier 1A] Success via FLUX.1-Kontext-dev:', resultUrl);
-      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (FLUX Kontext)' };
-    }
+    console.log('[2nd Priority] Success via FLUX.1-Kontext-dev:', resultUrl);
+    return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (FLUX Kontext)' };
   } catch (err) {
-    console.warn('[Tier 1A] FLUX.1-Kontext-dev space unavailable or busy:', err.message);
+    console.warn('[2nd Priority] FLUX.1-Kontext-dev failed:', err.message);
+    failureLog.push(`FLUX.1-Kontext-dev: ${err.message}`);
   }
 
-  // Space B: Qwen/Qwen-Image-Edit
+  // Space 2B: Qwen/Qwen-Image-Edit
   try {
-    console.log('[Tier 1B] Connecting to Qwen/Qwen-Image-Edit with HF token...');
-    const client = await Client.connect('Qwen/Qwen-Image-Edit', { token: HF_TOKEN, hf_token: HF_TOKEN });
-    const seed = Math.floor(Math.random() * 1000000);
-    const result = await client.predict('/infer', [
+    const resultUrl = await callGradioSpace('Qwen/Qwen-Image-Edit', () => [
       handle_file(imageBlob),
       instructionPrompt,
-      seed,
+      Math.floor(Math.random() * 1000000),
       true,    // randomize_seed
       4.0,     // true_guidance_scale
       35,      // num_inference_steps
       false    // rewrite_prompt
     ]);
-
-    const resultUrl = extractGradioOutputUrl(result?.data);
-    if (resultUrl) {
-      console.log('[Tier 1B] Success via Qwen-Image-Edit:', resultUrl);
-      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (Qwen Edit)' };
-    }
+    console.log('[2nd Priority] Success via Qwen-Image-Edit:', resultUrl);
+    return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (Qwen Edit)' };
   } catch (err) {
-    console.warn('[Tier 1B] Qwen/Qwen-Image-Edit space unavailable or busy:', err.message);
+    console.warn('[2nd Priority] Qwen/Qwen-Image-Edit failed:', err.message);
+    failureLog.push(`Qwen-Image-Edit: ${err.message}`);
   }
 
-  // Space C (Fallback): multimodalart/cosxl
+  // Space 2C (Fallback): multimodalart/cosxl
   try {
-    console.log('[Tier 1C] Connecting to multimodalart/cosxl with HF token...');
-    const client = await Client.connect('multimodalart/cosxl', { token: HF_TOKEN, hf_token: HF_TOKEN });
-    const result = await client.predict('/run_edit', [
+    const resultUrl = await callGradioSpace('multimodalart/cosxl', () => [
       handle_file(imageBlob),
       instructionPrompt,
-      'ugly, distorted, blurry, cartoon, altered architecture, replaced buildings',
+      'ugly, distorted, blurry, altered architecture, redrawn buildings',
       7.0,
       20
     ]);
-
-    const resultUrl = extractGradioOutputUrl(result?.data);
-    if (resultUrl) {
-      console.log('[Tier 1C] Success via cosxl:', resultUrl);
-      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (CosXL)' };
-    }
+    console.log('[2nd Priority] Success via cosxl:', resultUrl);
+    return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (CosXL)' };
   } catch (err) {
-    console.warn('[Tier 1C] cosxl space unavailable or busy:', err.message);
+    console.warn('[2nd Priority] multimodalart/cosxl failed:', err.message);
+    failureLog.push(`CosXL: ${err.message}`);
   }
 
-  // Space D (Fallback): timbrooks/instruct-pix2pix Gradio space
+  // Space 2D (Fallback): timbrooks/instruct-pix2pix Gradio Space
   try {
-    console.log('[Tier 1D] Connecting to timbrooks/instruct-pix2pix Gradio space with HF token...');
-    const client = await Client.connect('timbrooks/instruct-pix2pix', { token: HF_TOKEN, hf_token: HF_TOKEN });
-    const seed = Math.floor(Math.random() * 10000);
-    const result = await client.predict('/generate', [
+    const resultUrl = await callGradioSpace('timbrooks/instruct-pix2pix', () => [
       handle_file(imageBlob),
       instructionPrompt,
       20,
       '',
-      seed,
+      Math.floor(Math.random() * 10000),
       '',
       7.5,     // text_cfg
       1.85     // image_cfg (locks original buildings and wires)
     ]);
-
-    const resultUrl = extractGradioOutputUrl(result?.data);
-    if (resultUrl) {
-      console.log('[Tier 1D] Success via instruct-pix2pix Gradio:', resultUrl);
-      return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (Pix2Pix)' };
-    }
+    console.log('[2nd Priority] Success via instruct-pix2pix Gradio:', resultUrl);
+    return { url: resultUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (Pix2Pix Gradio)' };
   } catch (err) {
-    console.warn('[Tier 1D] instruct-pix2pix Gradio space unavailable:', err.message);
+    console.warn('[2nd Priority] timbrooks/instruct-pix2pix Gradio failed:', err.message);
+    failureLog.push(`Pix2Pix Gradio: ${err.message}`);
   }
 
-  // ── Tier 2: Gemini Native Image Editing (gemini-2.0-flash-exp-image-generation / gemini-2.5-flash-image) ──
-  try {
-    console.log('[Tier 2] Calling Gemini Native Image Editing endpoint...');
-    const base64Data = await blobToBase64(imageBlob);
-    const apiKey = getActiveApiKey();
-    const geminiImageModels = [
-      'gemini-2.0-flash-exp-image-generation',
-      'gemini-2.5-flash-image'
-    ];
-
-    for (const model of geminiImageModels) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
-
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: instructionPrompt },
-                  {
-                    inline_data: {
-                      mime_type: imageBlob.type || 'image/jpeg',
-                      data: base64Data
-                    }
-                  }
-                ]
-              }],
-              generationConfig: {
-                responseModalities: ["TEXT", "IMAGE"]
-              }
-            }),
-            signal: controller.signal
-          }
-        );
-        clearTimeout(timeout);
-
-        if (res.ok) {
-          const data = await res.json();
-          const parts = data?.candidates?.[0]?.content?.parts || [];
-          for (const p of parts) {
-            const imgData = p.inlineData || p.inline_data;
-            if (imgData && imgData.data) {
-              const mime = imgData.mimeType || imgData.mime_type || 'image/png';
-              console.log(`[Tier 2] Success via Gemini native image editing (${model})`);
-              return {
-                url: `data:${mime};base64,${imgData.data}`,
-                type: 'structure-locked',
-                badge: '🌿 Illustrative Proposal (Gemini Native)'
-              };
-            }
-          }
-        } else {
-          console.warn(`[Tier 2] Model ${model} returned HTTP ${res.status}`);
-        }
-      } catch (geminiErr) {
-        console.warn(`[Tier 2] Error with ${model}:`, geminiErr.message);
-      }
-    }
-  } catch (err) {
-    console.warn('[Tier 2] Gemini native image editing failed:', err.message);
+  // ═════════════════════════════════════════════════════════════════
+  // 3rd Priority: Hugging Face Serverless Inference API (timbrooks/instruct-pix2pix)
+  // ═════════════════════════════════════════════════════════════════
+  console.log('[3rd Priority] Calling Hugging Face Serverless Inference API for timbrooks/instruct-pix2pix...');
+  if (conceptLoadingP) {
+    conceptLoadingP.textContent = 'Rendering architectural greenery via Hugging Face Serverless Pix2Pix…';
   }
+  const hfEndpoints = [
+    'https://api-inference.huggingface.co/models/timbrooks/instruct-pix2pix',
+    'https://router.huggingface.co/hf-inference/models/timbrooks/instruct-pix2pix'
+  ];
 
-  // ── Tier 3: Hugging Face Serverless Inference API (timbrooks/instruct-pix2pix) ──
-  try {
-    console.log('[Tier 3] Calling Hugging Face Serverless Inference API for timbrooks/instruct-pix2pix...');
-    const hfEndpoints = [
-      'https://api-inference.huggingface.co/models/timbrooks/instruct-pix2pix',
-      'https://router.huggingface.co/hf-inference/models/timbrooks/instruct-pix2pix'
-    ];
-
-    const base64Data = await blobToBase64(imageBlob);
-
-    for (const endpoint of hfEndpoints) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 18000);
-
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + HF_TOKEN,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            inputs: base64Data,
-            parameters: {
-              prompt: instructionPrompt,
-              image_guidance_scale: 1.85,
-              guidance_scale: 7.5
-            }
-          }),
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
-
-        if (res.ok) {
-          const contentType = res.headers.get('content-type') || '';
-          if (contentType.includes('image')) {
-            const resultBlob = await res.blob();
-            const objectUrl = URL.createObjectURL(resultBlob);
-            console.log('[Tier 3] Success via HF Serverless Inference API');
-            return { url: objectUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (Pix2Pix Serverless)' };
-          }
-        }
-      } catch (endpointErr) {
-        console.warn(`[Tier 3] Error on ${endpoint}:`, endpointErr.message);
-      }
-    }
-  } catch (err) {
-    console.warn('[Tier 3] Serverless Inference API unavailable:', err.message);
-  }
-
-  // ── Tier 4: Final Safety Net - Pollinations FLUX.1 with Exact Scene Geometry ──
-  try {
-    console.log('[Tier 4] Engaging safety net: Pollinations FLUX.1 with exact geometry prompt...');
-    const promptToUse = (fluxFallbackPrompt && fluxFallbackPrompt.length > 25)
-      ? fluxFallbackPrompt
-      : instructionPrompt;
-
-    const seed = Math.floor(Math.random() * 10000);
-    const encodedPrompt = encodeURIComponent(promptToUse);
-
-    let hostedUrl = null;
+  for (const endpoint of hfEndpoints) {
     try {
-      hostedUrl = await uploadPhotoForImg2Img(imageBlob);
-    } catch {}
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 18000);
 
-    const candidateUrls = [];
-    if (hostedUrl) {
-      candidateUrls.push(
-        `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&image=${encodeURIComponent(hostedUrl)}&width=${width}&height=${height}&nologo=true&enhance=false&seed=${seed}`
-      );
-    }
-    candidateUrls.push(
-      `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&width=${width}&height=${height}&nologo=true&enhance=false&seed=${seed}`
-    );
-    candidateUrls.push('assets/khulna-renewal.png');
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + HF_TOKEN,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          inputs: base64Data,
+          parameters: {
+            prompt: instructionPrompt,
+            image_guidance_scale: 1.85,
+            guidance_scale: 7.5
+          }
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
 
-    for (const url of candidateUrls) {
-      try {
-        const loadedUrl = await loadImageWithTimeout(url, url.startsWith('http') ? 20000 : 3000);
-        if (loadedUrl) {
-          return { url: loadedUrl, type: 'flux-concept', badge: '🌿 Illustrative Proposal (Concept)' };
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('image')) {
+          const resultBlob = await res.blob();
+          const objectUrl = URL.createObjectURL(resultBlob);
+          console.log('[3rd Priority] Success via HF Serverless Inference API');
+          return { url: objectUrl, type: 'structure-locked', badge: '🌿 Illustrative Proposal (Pix2Pix Serverless)' };
         }
-      } catch (err) {
-        console.warn('[Tier 4] Candidate failed:', err.message);
+      } else {
+        const errText = await res.text();
+        let reason = `HTTP ${res.status}`;
+        try {
+          const errObj = JSON.parse(errText);
+          if (errObj?.error) reason += ` (${errObj.error})`;
+        } catch {}
+        console.warn(`[3rd Priority] Status ${res.status} on ${endpoint}:`, reason);
+        failureLog.push(`HF Serverless (${endpoint.split('/').pop()}): ${reason}`);
       }
+    } catch (endpointErr) {
+      console.warn(`[3rd Priority] Error on ${endpoint}:`, endpointErr.message);
+      failureLog.push(`HF Serverless: ${endpointErr.message}`);
     }
-  } catch (err) {
-    console.warn('[Tier 4] Pollinations fallback failed:', err.message);
   }
 
-  return { url: 'assets/khulna-renewal.png', type: 'fallback', badge: '🌿 Illustrative Proposal' };
+  // ═════════════════════════════════════════════════════════════════
+  // All true image-editing models failed: throw error to display honest UI retry card
+  // ═════════════════════════════════════════════════════════════════
+  const finalErrorMsg = failureLog.length > 0
+    ? failureLog.join(' · ')
+    : 'All image-editing endpoints (Gemini Native, FLUX.1-Kontext, Qwen-Image-Edit, Pix2Pix) were busy or quota-limited.';
+
+  console.error('[Image Editing Pipeline] All true image editing models failed:', finalErrorMsg);
+  throw new Error(finalErrorMsg);
 }
 
-async function generateVisualTransformation(file, context, suggestionsText = '', editPrompt = '', fluxFallbackPrompt = '') {
-  const swipeContainer    = $('#concept-swipe-container');
-  const swipeTransformed  = $('#swipe-transformed');
-  const swipeOriginal     = $('#swipe-original');
-  const userPhotoSwipe    = $('#user-photo-swipe');
-  const conceptLoadingBox = $('#concept-loading');
-  const providerBadge     = $('#ai-provider-badge');
+let activeEditPrompt = '';
 
-  if (!file || !swipeTransformed || !swipeOriginal) return;
+async function generateVisualTransformation(file, context, suggestionsText = '', editPrompt = '') {
+  const swipeContainer        = $('#concept-swipe-container');
+  const swipeTransformed      = $('#swipe-transformed');
+  const swipeOriginal         = $('#swipe-original');
+  const userPhotoSwipe        = $('#user-photo-swipe');
+  const conceptLoadingBox     = $('#concept-loading');
+  const conceptLoadingP       = $('#concept-loading-text');
+  const conceptErrorContainer = $('#concept-error-container');
+  const conceptErrorDetails   = $('#concept-error-details');
+  const providerBadge         = $('#ai-provider-badge');
 
-  if (conceptLoadingBox) {
-    conceptLoadingBox.hidden = false;
-    const loadingP = conceptLoadingBox.querySelector('p');
-    if (loadingP) loadingP.textContent = 'Locking building geometry & rendering illustrative proposal onto your photo…';
-  }
+  if (!file) return;
+
+  activeEditPrompt = editPrompt || ARCHITECTURAL_EDIT_PROMPT;
+
+  // Show loading, hide error & slider
+  if (conceptLoadingBox) conceptLoadingBox.hidden = false;
+  if (conceptErrorContainer) conceptErrorContainer.hidden = true;
   if (swipeContainer) swipeContainer.hidden = true;
+  if (conceptLoadingP) {
+    conceptLoadingP.textContent = 'Locking building geometry & rendering illustrative proposal onto your photo…';
+  }
 
   // 1. Set the user's actual photo in the comparison slider
   const originalUrl = URL.createObjectURL(file);
-  swipeOriginal.src = originalUrl;
+  if (swipeOriginal) swipeOriginal.src = originalUrl;
 
   try {
     // 2. Measure natural dimensions of uploaded photo
     const naturalDims = await getImageDimensions(file);
 
-    // 3. Execute Multi-Tier Structure-Locked Image-to-Image Pipeline
+    // 3. Execute Priority Structure-Locked Image-to-Image Pipeline
     const result = await generateStructureLockedImage(
       file,
-      editPrompt,
-      fluxFallbackPrompt,
+      activeEditPrompt,
       naturalDims.width,
       naturalDims.height
     );
 
-    swipeTransformed.src = result.url || 'assets/khulna-renewal.png';
+    if (swipeTransformed) swipeTransformed.src = result.url;
 
     if (providerBadge) {
       providerBadge.textContent = result.badge || '🌿 Illustrative Proposal';
       providerBadge.style.display = 'inline-flex';
     }
 
-  } catch (err) {
-    console.warn('[Transformation Engine] Error during image rendering:', err);
-    swipeTransformed.src = 'assets/khulna-renewal.png';
-    if (providerBadge) {
-      providerBadge.textContent = '🌿 Illustrative Proposal';
-      providerBadge.style.display = 'inline-flex';
-    }
-  } finally {
     if (conceptLoadingBox) conceptLoadingBox.hidden = true;
-    if (swipeContainer) swipeContainer.hidden = false;
-    setupSwipeSlider(userPhotoSwipe);
+    if (conceptErrorContainer) conceptErrorContainer.hidden = true;
+    if (swipeContainer) {
+      swipeContainer.hidden = false;
+      setupSwipeSlider(userPhotoSwipe);
+    }
+
+  } catch (err) {
+    console.error('[Transformation Engine] Image editing failed on all true models:', err);
+    if (conceptLoadingBox) conceptLoadingBox.hidden = true;
+    if (swipeContainer) swipeContainer.hidden = true;
+    if (providerBadge) providerBadge.style.display = 'none';
+
+    if (conceptErrorContainer) {
+      conceptErrorContainer.hidden = false;
+      if (conceptErrorDetails) {
+        conceptErrorDetails.textContent = `Server Status: ${err.message}`;
+      }
+    }
   }
 }
+
+// Wire the honest Retry Image Edit button
+$('#btn-retry-image-edit')?.addEventListener('click', async () => {
+  if (!uploadedFile) return;
+  const promptToUse = activeEditPrompt || ARCHITECTURAL_EDIT_PROMPT;
+  await generateVisualTransformation(uploadedFile, 'all', '', promptToUse);
+});
 
 /* ── Interactive Swipe Slider Controller ───────────────────────── */
 function setupSwipeSlider(frame) {

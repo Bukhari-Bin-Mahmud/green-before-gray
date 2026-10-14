@@ -622,6 +622,32 @@
   font-size: 13px;
 }
 
+/* ── Visual Proposal Error & Retry Card ────────────────────────── */
+.concept-error-card {
+  margin: 1.5rem 0;
+  padding: 2rem 1.5rem;
+  background: #fbf5f2;
+  border: 1.5px solid #dca794;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.concept-error-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  color: #803d27;
+}
+
+.concept-error-card p {
+  color: var(--ink);
+  max-width: 620px;
+  margin: 0 auto 1.25rem auto;
+  line-height: 1.5;
+  font-size: 13px;
+  word-break: break-word;
+}
+
 /* ── Responsive Refinements ────────────────────────────────────── */
 @media (max-width: 600px) {
   .ai-card {
