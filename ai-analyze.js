@@ -45,8 +45,18 @@ const uploadError      = $('#upload-error');
 const aiContext        = $('#ai-context');
 const btnAnalyze       = $('#btn-analyze');
 
-const keyInput         = $('#api-key-input');
-const toggleKeyBtn     = $('#toggle-key-visibility');
+const cameraModal      = $('#camera-modal');
+const cameraVideo      = $('#camera-video');
+const cameraCanvas     = $('#camera-canvas');
+const cameraStatus     = $('#camera-status');
+const btnCameraClose   = $('#btn-camera-close');
+const btnCameraCancel  = $('#btn-camera-cancel');
+const btnCameraCapture = $('#btn-camera-capture');
+const btnCameraSwitch  = $('#btn-camera-switch');
+
+let mediaStream = null;
+let currentFacingMode = 'environment';
+let availableVideoDevices = 0;
 
 const aiLoading        = $('#ai-loading');
 const aiLoadingStatus  = $('#ai-loading-status');
@@ -122,21 +132,11 @@ function showToast(msg) {
 
 /* ── Active API Key Getter ─────────────────────────────────────── */
 function getActiveApiKey() {
-  const custom = keyInput?.value?.trim();
-  if (custom && custom.length >= 10) return custom;
   try {
     const saved = localStorage.getItem(KEY_STORAGE);
     if (saved && saved.length >= 10) return saved;
   } catch {}
   return window.SITE_CONFIG?.geminiApiKey || DEFAULT_KEY;
-}
-
-// Optional custom key toggle
-if (toggleKeyBtn && keyInput) {
-  toggleKeyBtn.addEventListener('click', () => {
-    keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
-    toggleKeyBtn.textContent = keyInput.type === 'password' ? '👁' : '🙈';
-  });
 }
 
 /* ── Photo Selection & Camera Capture ─────────────────────────── */
@@ -164,16 +164,170 @@ function handleFile(file) {
   uploadFilename.textContent = file.name || 'Photo captured';
 }
 
-// Button actions: Camera vs File
-btnCamera?.addEventListener('click', () => cameraInput?.click());
+/* ── Live Camera Viewfinder & Capture Logic ────────────────────── */
+function isMobileDevice() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+function triggerCameraFallback() {
+  if (cameraInput) {
+    if (isMobileDevice()) {
+      cameraInput.setAttribute('capture', 'environment');
+    } else {
+      cameraInput.removeAttribute('capture');
+    }
+    cameraInput.click();
+  }
+}
+
+async function stopLiveCamera() {
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => {
+      try { track.stop(); } catch {}
+    });
+    mediaStream = null;
+  }
+  if (cameraVideo) {
+    cameraVideo.srcObject = null;
+  }
+  if (cameraModal) {
+    cameraModal.hidden = true;
+    document.body.classList.remove('modal-open');
+  }
+}
+
+async function startLiveCamera(facingMode = 'environment') {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    triggerCameraFallback();
+    return;
+  }
+
+  if (cameraModal) {
+    cameraModal.hidden = false;
+    document.body.classList.add('modal-open');
+  }
+  if (cameraStatus) {
+    cameraStatus.hidden = false;
+    cameraStatus.textContent = 'Connecting to camera…';
+  }
+
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => {
+      try { t.stop(); } catch {}
+    });
+    mediaStream = null;
+  }
+
+  const constraints = [
+    { video: { facingMode: { ideal: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false },
+    { video: { facingMode: facingMode }, audio: false },
+    { video: true, audio: false }
+  ];
+
+  let stream = null;
+  for (const c of constraints) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(c);
+      if (stream) break;
+    } catch (err) {
+      console.warn('Camera constraint attempt:', c, err);
+    }
+  }
+
+  if (!stream) {
+    console.warn('Could not acquire camera stream, falling back to file picker');
+    stopLiveCamera();
+    triggerCameraFallback();
+    return;
+  }
+
+  mediaStream = stream;
+  if (cameraVideo) {
+    cameraVideo.srcObject = stream;
+    try {
+      await cameraVideo.play();
+    } catch (playErr) {
+      console.warn('Video play warning:', playErr);
+    }
+  }
+  if (cameraStatus) {
+    cameraStatus.hidden = true;
+  }
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoInputs = devices.filter(d => d.kind === 'videoinput');
+    availableVideoDevices = videoInputs.length;
+    if (btnCameraSwitch) {
+      btnCameraSwitch.style.display = availableVideoDevices > 1 ? 'inline-flex' : 'none';
+    }
+  } catch (e) {
+    if (btnCameraSwitch) btnCameraSwitch.style.display = 'none';
+  }
+}
+
+function captureSnapshotFromLiveCamera() {
+  if (!cameraVideo || !cameraVideo.videoWidth) {
+    stopLiveCamera();
+    triggerCameraFallback();
+    return;
+  }
+
+  const canvas = cameraCanvas || document.createElement('canvas');
+  canvas.width = cameraVideo.videoWidth;
+  canvas.height = cameraVideo.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+
+  canvas.toBlob(blob => {
+    if (!blob) {
+      stopLiveCamera();
+      triggerCameraFallback();
+      return;
+    }
+    const filename = `street_photo_${Date.now().toString().slice(-4)}.jpg`;
+    const file = new File([blob], filename, { type: 'image/jpeg', lastModified: Date.now() });
+    stopLiveCamera();
+    handleFile(file);
+  }, 'image/jpeg', 0.92);
+}
+
+// Button actions: Camera Viewfinder & File selection
+btnCamera?.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    startLiveCamera(currentFacingMode);
+  } else {
+    triggerCameraFallback();
+  }
+});
+
+btnCameraClose?.addEventListener('click', stopLiveCamera);
+btnCameraCancel?.addEventListener('click', stopLiveCamera);
+btnCameraCapture?.addEventListener('click', captureSnapshotFromLiveCamera);
+btnCameraSwitch?.addEventListener('click', () => {
+  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+  startLiveCamera(currentFacingMode);
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && cameraModal && !cameraModal.hidden) {
+    stopLiveCamera();
+  }
+});
+
 btnBrowse?.addEventListener('click', () => fileInput?.click());
 btnChangePhoto?.addEventListener('click', (e) => {
   e.stopPropagation();
   fileInput?.click();
 });
 
-cameraInput?.addEventListener('change', () => handleFile(cameraInput.files[0]));
-fileInput?.addEventListener('change', () => handleFile(fileInput.files[0]));
+cameraInput?.addEventListener('change', () => {
+  if (cameraInput.files?.[0]) handleFile(cameraInput.files[0]);
+});
+fileInput?.addEventListener('change', () => {
+  if (fileInput.files?.[0]) handleFile(fileInput.files[0]);
+});
 
 // Drag and drop support
 dropZone?.addEventListener('click', () => {
